@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PawsNClaws.Application.Features.Authentication.Interfaces;
+using PawsNClaws.Application.Features.Employees.Interfaces;
 using PawsNClaws.Infastructure.Identity.Local;
 using PawsNClaws.Infastructure.Persistence.Local;
 
@@ -30,19 +31,36 @@ builder.Services.AddScoped<
     IEmployeeAuthenticationService,
     EmployeeAuthenticationService>();
 
+
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.LoginPath = "/Account/Login";
-    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.Events.OnValidatePrincipal = async context =>
+    {
+        // Preserve ASP.NET Core Identity's security
+        // stamp validation when customizing this event.
+        await SecurityStampValidator
+            .ValidatePrincipalAsync(context);
 
-    options.Cookie.Name = "PawsNClaws.Local.Auth";
-    options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.Lax;
+        if (context.Principal?.Identity?.IsAuthenticated != true)
+            return;
 
-    options.ExpireTimeSpan = TimeSpan.FromHours(8);
-    options.SlidingExpiration = true;
+        var userManager = context.HttpContext
+            .RequestServices
+            .GetRequiredService<UserManager<LocalApplicationUser>>();
+
+        var user = await userManager.GetUserAsync(
+            context.Principal);
+
+        if (user is null || !user.IsActive)
+        {
+            context.RejectPrincipal();
+
+            await context.HttpContext.SignOutAsync(
+                IdentityConstants.ApplicationScheme);
+        }
+    };
 });
+
 
 // Configure Identity lockout settings before builder.Build().
 builder.Services.Configure<IdentityOptions>(options =>
@@ -106,6 +124,20 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddSingleton<
     IAuthorizationHandler,
     PermissionAuthorizationHandler>();
+
+builder.Services.AddScoped<
+    IEmployeeManagementService,
+    EmployeeManagementService>();
+
+
+builder.Services.Configure<SecurityStampValidatorOptions>(
+    options =>
+    {
+        // Revalidate on every authenticated request.
+        // This prioritizes immediate revocation over
+        // database-query performance.
+        options.ValidationInterval = TimeSpan.Zero;
+    });
 
 
 

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using PawsNClaws.Application.Features.Authentication.DTOs;
 using PawsNClaws.Application.Features.Authentication.Interfaces;
 
@@ -9,24 +10,40 @@ public sealed class EmployeeAuthenticationService
 {
     private readonly UserManager<LocalApplicationUser> _users;
     private readonly SignInManager<LocalApplicationUser> _signIn;
+    private readonly ILogger<EmployeeAuthenticationService> _logger;
 
     public EmployeeAuthenticationService(
         UserManager<LocalApplicationUser> users,
-        SignInManager<LocalApplicationUser> signIn)
+        SignInManager<LocalApplicationUser> signIn,
+        ILogger<EmployeeAuthenticationService> logger)
     {
         _users = users;
         _signIn = signIn;
+        _logger = logger;
     }
+
 
     public async Task<EmployeeLoginResult> LoginAsync(
         string email,
         string password,
         bool rememberMe)
     {
-        var user = await _users.FindByEmailAsync(email);
+        var user = await _users.FindByEmailAsync(email.Trim());
 
-        if (user is null || !user.IsActive)
+        if (user is null)
         {
+            _logger.LogWarning(
+                "Employee login failed: account not found.");
+
+            return new(EmployeeLoginStatus.InvalidCredentials);
+        }
+
+        if (!user.IsActive)
+        {
+            _logger.LogWarning(
+                "Employee login rejected: inactive account. UserId={UserId}",
+                user.Id);
+
             return new(EmployeeLoginStatus.InvalidCredentials);
         }
 
@@ -36,16 +53,28 @@ public sealed class EmployeeAuthenticationService
             rememberMe,
             lockoutOnFailure: true);
 
+        _logger.LogInformation(
+            "Employee sign-in result. UserId={UserId}, " +
+            "Succeeded={Succeeded}, LockedOut={LockedOut}, " +
+            "NotAllowed={NotAllowed}, RequiresTwoFactor={RequiresTwoFactor}",
+            user.Id,
+            result.Succeeded,
+            result.IsLockedOut,
+            result.IsNotAllowed,
+            result.RequiresTwoFactor);
+
         if (result.IsLockedOut)
             return new(EmployeeLoginStatus.LockedOut);
 
         if (result.IsNotAllowed)
             return new(EmployeeLoginStatus.NotAllowed);
 
-        return new(result.Succeeded
-            ? EmployeeLoginStatus.Success
-            : EmployeeLoginStatus.InvalidCredentials);
+        return new(
+            result.Succeeded
+                ? EmployeeLoginStatus.Success
+                : EmployeeLoginStatus.InvalidCredentials);
     }
+
 
     public Task LogoutAsync()
     {

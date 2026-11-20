@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+  </Folder>
   <Project Path="PawsNClaws.Application/PawsNClaws.Application.csproj" />
   <Project Path="PawsNClaws.Domain/PawsNClaws.Domain.csproj" />
   <Project Path="PawsNClaws.Infastructure/PawsNClaws.Infastructure.csproj" />
