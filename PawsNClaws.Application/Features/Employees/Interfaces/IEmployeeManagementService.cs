@@ -23,4 +23,11 @@ public interface IEmployeeManagementService
             bool isActive,
             CancellationToken cancellationToken = default);
 
+
+    Task<(bool Succeeded, IReadOnlyList<string> Errors)>
+        ChangeRoleAsync(
+            ChangeEmployeeRoleRequest request,
+            CancellationToken cancellationToken = default);
+
+
 }

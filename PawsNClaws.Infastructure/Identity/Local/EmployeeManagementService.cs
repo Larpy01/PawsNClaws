@@ -241,4 +241,25 @@ public sealed class EmployeeManagementService
         return (true, Array.Empty<string>());
     }
 
+
+    public Task<(bool Succeeded, IReadOnlyList<string> Errors)>
+        ChangeRoleAsync(
+            ChangeEmployeeRoleRequest request,
+            CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Phase 2.3: Role management is not implemented yet.
+        // Fail closed until authorization, transaction handling,
+        // security stamp updates, and audit logging are complete.
+        return Task.FromResult<(
+            bool Succeeded,
+            IReadOnlyList<string> Errors)>(
+            (false, new[]
+            {
+            "Employee role management is not available yet."
+            }));
+    }
+
+
 }

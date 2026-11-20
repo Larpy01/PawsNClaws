@@ -18,6 +18,8 @@ public class LocalDbContext
         : base(options)
     {
     }
+    public DbSet<EmployeeAuditLog> EmployeeAuditLogs
+    => Set<EmployeeAuditLog>();
 
     public DbSet<Product> Products => Set<Product>();
 
@@ -57,5 +59,28 @@ public class LocalDbContext
             entity.Property(u => u.IsActive)
                 .HasDefaultValue(true);
         });
+
+
+        builder.Entity<EmployeeAuditLog>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Action)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(x => x.OldValue)
+                .HasMaxLength(256);
+
+            entity.Property(x => x.NewValue)
+                .HasMaxLength(256);
+
+            entity.HasIndex(x => x.TargetUserId);
+            entity.HasIndex(x => x.CreatedAtUtc);
+        });
+
+
     }
+
+
 }

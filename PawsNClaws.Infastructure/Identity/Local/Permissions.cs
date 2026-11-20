@@ -26,6 +26,8 @@ public static class Permissions
 
     public const string SettingsManage = "Settings.Manage";
 
+    public const string UsersChangeStatus = "Users.ChangeStatus";
+
     public static IReadOnlyList<string> All { get; } =
         typeof(Permissions)
             .GetFields(BindingFlags.Public | BindingFlags.Static)
