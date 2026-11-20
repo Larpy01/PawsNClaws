@@ -32,36 +32,6 @@ builder.Services.AddScoped<
     EmployeeAuthenticationService>();
 
 
-builder.Services.ConfigureApplicationCookie(options =>
-{
-    options.Events.OnValidatePrincipal = async context =>
-    {
-        // Preserve ASP.NET Core Identity's security
-        // stamp validation when customizing this event.
-        await SecurityStampValidator
-            .ValidatePrincipalAsync(context);
-
-        if (context.Principal?.Identity?.IsAuthenticated != true)
-            return;
-
-        var userManager = context.HttpContext
-            .RequestServices
-            .GetRequiredService<UserManager<LocalApplicationUser>>();
-
-        var user = await userManager.GetUserAsync(
-            context.Principal);
-
-        if (user is null || !user.IsActive)
-        {
-            context.RejectPrincipal();
-
-            await context.HttpContext.SignOutAsync(
-                IdentityConstants.ApplicationScheme);
-        }
-    };
-});
-
-
 // Configure Identity lockout settings before builder.Build().
 builder.Services.Configure<IdentityOptions>(options =>
 {
@@ -78,26 +48,41 @@ builder.Services.AddDbContext<LocalDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("LocalConnection")));
 
+
 builder.Services.ConfigureApplicationCookie(options =>
 {
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+
+    options.Cookie.Name = "PawsNClaws.Local.Auth";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = true;
+
     options.Events.OnValidatePrincipal = async context =>
     {
-        var userManager = context.HttpContext
-            .RequestServices
+        await SecurityStampValidator.ValidatePrincipalAsync(context);
+
+        if (context.Principal?.Identity?.IsAuthenticated != true)
+            return;
+
+        var userManager = context.HttpContext.RequestServices
             .GetRequiredService<UserManager<LocalApplicationUser>>();
 
-        var user = await userManager.GetUserAsync(
-            context.Principal!);
+        var user = await userManager.GetUserAsync(context.Principal);
 
         if (user is null || !user.IsActive)
         {
             context.RejectPrincipal();
-
             await context.HttpContext.SignOutAsync(
                 IdentityConstants.ApplicationScheme);
         }
     };
 });
+
 
 
 builder.Services.AddAuthorization(options =>
@@ -139,6 +124,9 @@ builder.Services.Configure<SecurityStampValidatorOptions>(
         options.ValidationInterval = TimeSpan.Zero;
     });
 
+builder.Services.AddScoped<
+    IEmployeeAuditLogService,
+    EmployeeAuditLogService>();
 
 
 var app = builder.Build();

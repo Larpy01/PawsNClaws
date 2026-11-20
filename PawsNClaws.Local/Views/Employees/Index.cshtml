@@ -19,6 +19,19 @@
                 Add Employee
             </a>
         }
+
+        
+        @if (User.HasClaim("Permission", Permissions.UsersView)
+            && (User.IsInRole(LocalRoles.SuperAdmin)
+                || User.IsInRole(LocalRoles.Admin)))
+        {
+            <a asp-controller="EmployeeAuditLogs"
+               asp-action="Index"
+               class="btn btn-outline-secondary">
+                View Audit Logs
+            </a>
+        }
+
     </div>
 
     @if (TempData["SuccessMessage"] is string message)
@@ -68,7 +81,7 @@
                         </td>        
                         <td>
                             @if (User.HasClaim(
-                                    "Permission", Permissions.UsersAssignRoles)
+                                    "Permission", Permissions.UsersChangeStatus)
                                 && (User.IsInRole(LocalRoles.SuperAdmin)
                                     || User.IsInRole(LocalRoles.Admin))
                                 && employee.Id.ToString() !=
@@ -100,6 +113,54 @@
                                     </button>
                                 </form>
                             }
+                        </td>
+                        <td>
+                            
+                            @if (User.HasClaim("Permission", Permissions.UsersAssignRoles)
+                                && (User.IsInRole(LocalRoles.SuperAdmin)
+                                    || User.IsInRole(LocalRoles.Admin))
+                                && employee.Id.ToString() !=
+                                    User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                                && !employee.Roles.Contains(LocalRoles.SuperAdmin)
+                                && !employee.Roles.Contains(LocalRoles.Admin))
+                            {
+                                <form asp-controller="Employees"
+                                      asp-action="ChangeRole"
+                                      method="post"
+                                      class="d-inline-flex gap-2 align-items-center mt-1">
+
+                                    @Html.AntiForgeryToken()
+
+                                    <input type="hidden"
+                                           name="id"
+                                           value="@employee.Id" />
+
+                                    <select name="newRole"
+                                            class="form-select form-select-sm"
+                                            aria-label="New employee role"
+                                            required>
+                                        @foreach (var role in new[]
+                                        {
+                                            LocalRoles.Manager,
+                                            LocalRoles.Cashier,
+                                            LocalRoles.Groomer,
+                                            LocalRoles.InventoryStaff
+                                        })
+                                        {
+                                            <option value="@role"
+                                                    selected="@(employee.Roles.Contains(role))">
+                                                @role
+                                            </option>
+                                        }
+                                    </select>
+
+                                    <button type="submit"
+                                            class="btn btn-sm btn-outline-primary">
+                                        Change Role
+                                    </button>
+                                </form>
+                            }
+
                         </td>
 
                     </tr>

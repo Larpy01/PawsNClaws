@@ -2,6 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using PawsNClaws.Application.Features.Employees.DTOs;
 using PawsNClaws.Application.Features.Employees.Interfaces;
+using PawsNClaws.Domain.Entities;
+using PawsNClaws.Infastructure.Persistence.Local;
 
 namespace PawsNClaws.Infastructure.Identity.Local;
 
@@ -77,18 +79,43 @@ public sealed class EmployeeManagementService
 
         // Privileged roles are never assignable through
         // this general employee-creation operation.
-        var allowedRoles = new[]
+
+        var actor = await _users.FindByIdAsync(
+            request.ActingUserId.ToString());
+
+        if (actor is null || !actor.IsActive)
         {
+            return (false, ["Administrator account is not active."]);
+        }
+
+        bool isSuperAdmin =
+            await _users.IsInRoleAsync(actor, LocalRoles.SuperAdmin);
+
+        bool isAdmin =
+            await _users.IsInRoleAsync(actor, LocalRoles.Admin);
+
+        if (!isSuperAdmin && !isAdmin)
+        {
+            return (false, ["You are not authorized to create employees."]);
+        }
+
+        string[] allowedRoles =
+        [
             LocalRoles.Manager,
             LocalRoles.Cashier,
             LocalRoles.Groomer,
             LocalRoles.InventoryStaff
-        };
+        ];
 
-        if (!allowedRoles.Contains(request.Role))
+        bool isAllowed =
+            allowedRoles.Contains(request.Role, StringComparer.Ordinal) ||
+            (request.Role == LocalRoles.Admin && isSuperAdmin);
+
+        if (!isAllowed)
         {
-            return (false, ["The selected role is not permitted."]);
+            return (false, ["You are not authorized to assign this role."]);
         }
+
 
         if (!await _roles.RoleExistsAsync(request.Role))
         {
@@ -242,23 +269,132 @@ public sealed class EmployeeManagementService
     }
 
 
-    public Task<(bool Succeeded, IReadOnlyList<string> Errors)>
+
+
+    public async Task<(bool Succeeded, IReadOnlyList<string> Errors)>
         ChangeRoleAsync(
             ChangeEmployeeRoleRequest request,
             CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Phase 2.3: Role management is not implemented yet.
-        // Fail closed until authorization, transaction handling,
-        // security stamp updates, and audit logging are complete.
-        return Task.FromResult<(
-            bool Succeeded,
-            IReadOnlyList<string> Errors)>(
-            (false, new[]
-            {
-            "Employee role management is not available yet."
-            }));
+        if (request.EmployeeId == request.ActingUserId)
+            return (false, ["You cannot change your own role."]);
+
+        string[] allowedRoles =
+        [
+            LocalRoles.Manager,
+            LocalRoles.Cashier, 
+            LocalRoles.Groomer,
+            LocalRoles.InventoryStaff
+        ];
+
+        if (string.IsNullOrWhiteSpace(request.NewRole) ||
+            !allowedRoles.Contains(
+                request.NewRole, StringComparer.Ordinal))
+        {
+            return (false, ["The selected role is not permitted."]);
+        }
+
+        var actor = await _users.FindByIdAsync(
+            request.ActingUserId.ToString());
+
+        if (actor is null || !actor.IsActive)
+            return (false, ["Administrator account is not active."]);
+
+        bool isSuperAdmin =
+            await _users.IsInRoleAsync(actor, LocalRoles.SuperAdmin);
+
+        bool isAdmin =
+            await _users.IsInRoleAsync(actor, LocalRoles.Admin);
+
+        if (!isSuperAdmin && !isAdmin)
+            return (false, ["You are not authorized to change roles."]);
+
+        if (!await _roles.RoleExistsAsync(request.NewRole))
+            return (false, ["The selected role does not exist."]);
+
+        await using var transaction =
+            await _db.Database.BeginTransactionAsync(cancellationToken);
+
+        var employee = await _db.Users
+            .FromSqlInterpolated(
+                $"SELECT * FROM dbo.AspNetUsers WITH (UPDLOCK, HOLDLOCK) WHERE Id = {request.EmployeeId}")
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (employee is null)
+            return (false, ["Employee not found."]);
+
+        var currentRoles = await _users.GetRolesAsync(employee);
+
+        if (currentRoles.Contains(LocalRoles.SuperAdmin) ||
+            currentRoles.Contains(LocalRoles.Admin))
+        {
+            return (false,
+                ["Privileged administrator accounts cannot be modified here."]);
+        }
+
+        if (currentRoles.Count != 1 ||
+            !allowedRoles.Contains(
+                currentRoles[0], StringComparer.Ordinal))
+        {
+            return (false,
+                ["Employee has an unexpected role configuration."]);
+        }
+
+        string oldRole = currentRoles[0];
+
+        if (oldRole == request.NewRole)
+            return (true, Array.Empty<string>());
+
+        var removed = await _users.RemoveFromRoleAsync(
+            employee, oldRole);
+
+        if (!removed.Succeeded)
+            return (false, removed.Errors
+                .Select(e => e.Description).ToArray());
+
+        var assigned = await _users.AddToRoleAsync(
+            employee, request.NewRole);
+
+        if (!assigned.Succeeded)
+            return (false, assigned.Errors
+                .Select(e => e.Description).ToArray());
+
+        var stampResult =
+            await _users.UpdateSecurityStampAsync(employee);
+
+        if (!stampResult.Succeeded)
+            return (false, stampResult.Errors
+                .Select(e => e.Description).ToArray());
+
+        _db.EmployeeAuditLogs.Add(new EmployeeAuditLog
+        {
+            ActorUserId = request.ActingUserId,
+            TargetUserId = request.EmployeeId,
+            Action = "Employee.RoleChanged",
+            OldValue = oldRole,
+            NewValue = request.NewRole,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return (true, Array.Empty<string>());
+    }
+
+
+    private readonly LocalDbContext _db;
+
+    public EmployeeManagementService(
+        UserManager<LocalApplicationUser> users,
+        RoleManager<IdentityRole<Guid>> roles,
+        LocalDbContext db)
+    {
+        _users = users;
+        _roles = roles;
+        _db = db;
     }
 
 

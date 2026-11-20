@@ -56,12 +56,23 @@ public sealed class EmployeesController : Controller
         if (!ModelState.IsValid)
             return View(model);
 
+
+        var actingUserId = _users.GetUserId(User);
+
+        if (!Guid.TryParse(actingUserId, out var actorId))
+        {
+            return Challenge();
+        }
+
         var request = new CreateEmployeeRequest(
             model.FirstName,
             model.LastName,
             model.Email,
             model.Password,
-            model.Role);
+            model.Role,
+            actorId);
+
+
 
         var result = await _employees.CreateAsync(
             request,
@@ -86,7 +97,7 @@ public sealed class EmployeesController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [Authorize(Policy = Permissions.UsersAssignRoles)]
+    [Authorize(Policy = Permissions.UsersChangeStatus)]
     [Authorize(Roles =
         LocalRoles.SuperAdmin + "," + LocalRoles.Admin)]
     public async Task<IActionResult> SetStatus(
@@ -121,6 +132,43 @@ public sealed class EmployeesController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = Permissions.UsersAssignRoles)]
+    [Authorize(Roles = LocalRoles.SuperAdmin + "," + LocalRoles.Admin)]
+    public async Task<IActionResult> ChangeRole(
+        Guid id,
+        string newRole,
+        CancellationToken cancellationToken)
+    {
+        var actingUserId = _users.GetUserId(User);
+
+        if (!Guid.TryParse(actingUserId, out var actorId))
+            return Challenge();
+
+        var request = new ChangeEmployeeRoleRequest(
+            id,
+            actorId,
+            newRole);
+
+        var result = await _employees.ChangeRoleAsync(
+            request,
+            cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            TempData["ErrorMessage"] =
+                string.Join(" ", result.Errors);
+        }
+        else
+        {
+            TempData["SuccessMessage"] =
+                "Employee role updated successfully.";
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
 
 
 }

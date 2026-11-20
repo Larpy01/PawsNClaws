@@ -1,17 +1,24 @@
 ﻿@model PawsNClaws.Local.Models.Employees.CreateEmployeeModel
 @using PawsNClaws.Infastructure.Identity.Local
 
+
 @{
     ViewData["Title"] = "Add Employee";
 
-    var roles = new[]
+    var roles = new List<string>
     {
         LocalRoles.Manager,
         LocalRoles.Cashier,
         LocalRoles.Groomer,
         LocalRoles.InventoryStaff
     };
+
+    if (User.IsInRole(LocalRoles.SuperAdmin))
+    {
+        roles.Insert(0, LocalRoles.Admin);
+    }
 }
+
 
 <div class="container py-4">
     <h2>Add Employee</h2>
