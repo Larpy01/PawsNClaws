@@ -1,0 +1,25 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# .NET build output
+**/bin/
+**/obj/
+
+# IDE files
+.idea/
+.vscode/
+
+# Local secrets
+.env
+.env.*
+**/appsettings.Local.json
+
+# Logs
+*.log
+logs/
+
+# Local databases
+*.mdf
+*.ldf

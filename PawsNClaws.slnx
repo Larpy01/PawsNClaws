@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="PawsNClaws.Application/PawsNClaws.Application.csproj" />
+  <Project Path="PawsNClaws.Domain/PawsNClaws.Domain.csproj" />
+  <Project Path="PawsNClaws.Infastructure/PawsNClaws.Infastructure.csproj" />
+  <Project Path="PawsNClaws.Local/PawsNClaws.Local.csproj" />
+  <Project Path="PawsNClaws.SyncWorker/PawsNClaws.SyncWorker.csproj" />
+  <Project Path="PawsNClaws.Web/PawsNClaws.Web.csproj" />
+  <Project Path="PawsNClaws/PawsNClaws.API.csproj" />
+</Solution>

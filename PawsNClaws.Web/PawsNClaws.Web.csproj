@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PawsNClaws.Application\PawsNClaws.Application.csproj" />
+    <ProjectReference Include="..\PawsNClaws.Infastructure\PawsNClaws.Infastructure.csproj" />
+  </ItemGroup>
+
+</Project>
