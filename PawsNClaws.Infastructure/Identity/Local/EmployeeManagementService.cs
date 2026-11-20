@@ -7,18 +7,22 @@ using PawsNClaws.Infastructure.Persistence.Local;
 
 namespace PawsNClaws.Infastructure.Identity.Local;
 
+
 public sealed class EmployeeManagementService
     : IEmployeeManagementService
 {
     private readonly UserManager<LocalApplicationUser> _users;
     private readonly RoleManager<IdentityRole<Guid>> _roles;
+    private readonly LocalDbContext _db;
 
     public EmployeeManagementService(
         UserManager<LocalApplicationUser> users,
-        RoleManager<IdentityRole<Guid>> roles)
+        RoleManager<IdentityRole<Guid>> roles,
+        LocalDbContext db)
     {
         _users = users;
         _roles = roles;
+        _db = db;
     }
 
     public async Task<IReadOnlyList<EmployeeDto>> GetAllAsync(
@@ -382,19 +386,6 @@ public sealed class EmployeeManagementService
         await transaction.CommitAsync(cancellationToken);
 
         return (true, Array.Empty<string>());
-    }
-
-
-    private readonly LocalDbContext _db;
-
-    public EmployeeManagementService(
-        UserManager<LocalApplicationUser> users,
-        RoleManager<IdentityRole<Guid>> roles,
-        LocalDbContext db)
-    {
-        _users = users;
-        _roles = roles;
-        _db = db;
     }
 
 
