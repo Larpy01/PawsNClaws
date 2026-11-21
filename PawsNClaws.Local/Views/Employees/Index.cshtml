@@ -86,7 +86,8 @@
                                     || User.IsInRole(LocalRoles.Admin))
                                 && employee.Id.ToString() !=
                                     User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                                && !employee.Roles.Contains(LocalRoles.SuperAdmin))
+                                && !employee.Roles.Contains(LocalRoles.SuperAdmin)
+                                && !employee.Roles.Contains(LocalRoles.Admin))
                             {
                                 <form asp-controller="Employees"
                                       asp-action="SetStatus"

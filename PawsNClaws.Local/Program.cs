@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PawsNClaws.Application.Features.Authentication.Interfaces;
 using PawsNClaws.Application.Features.Employees.Interfaces;
+using PawsNClaws.Application.Features.Products.Interfaces;
+using PawsNClaws.Infastructure.Features.Products;
 using PawsNClaws.Infastructure.Identity.Local;
 using PawsNClaws.Infastructure.Persistence.Local;
 
@@ -127,6 +129,8 @@ builder.Services.Configure<SecurityStampValidatorOptions>(
 builder.Services.AddScoped<
     IEmployeeAuditLogService,
     EmployeeAuditLogService>();
+
+builder.Services.AddScoped<IProductService, ProductService>();
 
 
 var app = builder.Build();

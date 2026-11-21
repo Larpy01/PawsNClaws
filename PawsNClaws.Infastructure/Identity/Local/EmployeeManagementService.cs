@@ -5,6 +5,7 @@ using PawsNClaws.Application.Features.Employees.Interfaces;
 using PawsNClaws.Domain.Entities;
 using PawsNClaws.Infastructure.Persistence.Local;
 
+
 namespace PawsNClaws.Infastructure.Identity.Local;
 
 
@@ -64,72 +65,68 @@ public sealed class EmployeeManagementService
         return ToDto(user, roles);
     }
 
-    public async Task<(
-        bool Succeeded,
-        IReadOnlyList<string> Errors)> CreateAsync(
-        CreateEmployeeRequest request,
-        CancellationToken cancellationToken = default)
+
+    public async Task<(bool Succeeded, IReadOnlyList<string> Errors)>
+        CreateAsync(
+            CreateEmployeeRequest request,
+            CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var email = request.Email.Trim();
-
-        if (string.IsNullOrWhiteSpace(email) ||
+        if (string.IsNullOrWhiteSpace(request.Email) ||
             string.IsNullOrWhiteSpace(request.FirstName) ||
-            string.IsNullOrWhiteSpace(request.LastName))
+            string.IsNullOrWhiteSpace(request.LastName) ||
+            string.IsNullOrWhiteSpace(request.Password))
         {
             return (false, ["Required employee information is missing."]);
         }
 
-        // Privileged roles are never assignable through
-        // this general employee-creation operation.
+        var email = request.Email.Trim();
 
-        var actor = await _users.FindByIdAsync(
-            request.ActingUserId.ToString());
+        await using var transaction =
+            await _db.Database.BeginTransactionAsync(cancellationToken);
+
+        // Verify the acting administrator within the transaction.
+        var actor = await _db.Users
+            .FromSqlInterpolated(
+                $"SELECT * FROM dbo.AspNetUsers WITH (UPDLOCK, HOLDLOCK) WHERE Id = {request.ActingUserId}")
+            .SingleOrDefaultAsync(cancellationToken);
 
         if (actor is null || !actor.IsActive)
-        {
             return (false, ["Administrator account is not active."]);
-        }
+
+        var actorRoles = await _users.GetRolesAsync(actor);
 
         bool isSuperAdmin =
-            await _users.IsInRoleAsync(actor, LocalRoles.SuperAdmin);
+            actorRoles.Contains(LocalRoles.SuperAdmin);
 
         bool isAdmin =
-            await _users.IsInRoleAsync(actor, LocalRoles.Admin);
+            actorRoles.Contains(LocalRoles.Admin);
 
         if (!isSuperAdmin && !isAdmin)
-        {
             return (false, ["You are not authorized to create employees."]);
-        }
 
-        string[] allowedRoles =
+        string[] operationalRoles =
         [
             LocalRoles.Manager,
-            LocalRoles.Cashier,
-            LocalRoles.Groomer,
-            LocalRoles.InventoryStaff
+        LocalRoles.Cashier,
+        LocalRoles.Groomer,
+        LocalRoles.InventoryStaff
         ];
 
         bool isAllowed =
-            allowedRoles.Contains(request.Role, StringComparer.Ordinal) ||
+            operationalRoles.Contains(
+                request.Role, StringComparer.Ordinal) ||
             (request.Role == LocalRoles.Admin && isSuperAdmin);
 
         if (!isAllowed)
-        {
             return (false, ["You are not authorized to assign this role."]);
-        }
-
 
         if (!await _roles.RoleExistsAsync(request.Role))
-        {
             return (false, ["The selected role does not exist."]);
-        }
 
         if (await _users.FindByEmailAsync(email) is not null)
-        {
             return (false, ["An employee with this email already exists."]);
-        }
 
         var user = new LocalApplicationUser
         {
@@ -143,39 +140,40 @@ public sealed class EmployeeManagementService
         };
 
         var created = await _users.CreateAsync(
-            user,
-            request.Password);
+            user, request.Password);
 
         if (!created.Succeeded)
         {
             return (false, created.Errors
-                .Select(e => e.Description)
-                .ToArray());
+                .Select(e => e.Description).ToArray());
         }
 
         var assigned = await _users.AddToRoleAsync(
-            user,
-            request.Role);
+            user, request.Role);
 
         if (!assigned.Succeeded)
         {
-            // Roll back the newly created account if
-            // role assignment fails.
-            var deleted = await _users.DeleteAsync(user);
-
-            if (!deleted.Succeeded)
-            {
-                throw new InvalidOperationException(
-                    "Employee creation failed and cleanup requires attention.");
-            }
-
+            // The transaction rolls back the user creation.
             return (false, assigned.Errors
-                .Select(e => e.Description)
-                .ToArray());
+                .Select(e => e.Description).ToArray());
         }
+
+        _db.EmployeeAuditLogs.Add(new EmployeeAuditLog
+        {
+            ActorUserId = request.ActingUserId,
+            TargetUserId = user.Id,
+            Action = "Employee.Created",
+            OldValue = null,
+            NewValue = request.Role,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return (true, Array.Empty<string>());
     }
+
 
     private static EmployeeDto ToDto(
         LocalApplicationUser user,
@@ -191,13 +189,13 @@ public sealed class EmployeeManagementService
     }
 
 
-    public async Task<(
-        bool Succeeded,
-        IReadOnlyList<string> Errors)> SetActiveStatusAsync(
-        Guid employeeId,
-        Guid actingUserId,
-        bool isActive,
-        CancellationToken cancellationToken = default)
+
+    public async Task<(bool Succeeded, IReadOnlyList<string> Errors)>
+        SetActiveStatusAsync(
+            Guid employeeId,
+            Guid actingUserId,
+            bool isActive,
+            CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -207,70 +205,90 @@ public sealed class EmployeeManagementService
                 ["You cannot change your own account status."]);
         }
 
-        var actor = await _users.FindByIdAsync(
-            actingUserId.ToString());
+        await using var transaction =
+            await _db.Database.BeginTransactionAsync(cancellationToken);
+
+        var actor = await _db.Users
+            .FromSqlInterpolated(
+                $"SELECT * FROM dbo.AspNetUsers WITH (UPDLOCK, HOLDLOCK) WHERE Id = {actingUserId}")
+            .SingleOrDefaultAsync(cancellationToken);
 
         if (actor is null || !actor.IsActive)
-        {
-            return (false,
-                ["The administrator account is not active."]);
-        }
+            return (false, ["Administrator account is not active."]);
 
-        if (!await _users.IsInRoleAsync(
-            actor, LocalRoles.SuperAdmin) &&
-            !await _users.IsInRoleAsync(
-                actor, LocalRoles.Admin))
+        var actorRoles = await _users.GetRolesAsync(actor);
+
+        if (!actorRoles.Contains(LocalRoles.SuperAdmin) &&
+            !actorRoles.Contains(LocalRoles.Admin))
         {
             return (false,
                 ["You are not authorized to change employee status."]);
         }
 
-        var employee = await _users.FindByIdAsync(
-            employeeId.ToString());
+        var employee = await _db.Users
+            .FromSqlInterpolated(
+                $"SELECT * FROM dbo.AspNetUsers WITH (UPDLOCK, HOLDLOCK) WHERE Id = {employeeId}")
+            .SingleOrDefaultAsync(cancellationToken);
 
         if (employee is null)
-        {
             return (false, ["Employee not found."]);
-        }
 
-        // SuperAdmin accounts require a separate,
-        // privileged account recovery process.
-        if (await _users.IsInRoleAsync(
-            employee, LocalRoles.SuperAdmin))
+        var employeeRoles = await _users.GetRolesAsync(employee);
+
+        // Protect privileged accounts from general status management.
+        if (employeeRoles.Contains(LocalRoles.SuperAdmin) ||
+            employeeRoles.Contains(LocalRoles.Admin))
         {
             return (false,
-                ["SuperAdmin accounts cannot be modified here."]);
+                ["Administrator accounts cannot be modified here."]);
         }
 
         if (employee.IsActive == isActive)
-        {
             return (true, Array.Empty<string>());
-        }
+
+        string oldStatus = employee.IsActive
+            ? "Active"
+            : "Inactive";
+
+        string newStatus = isActive
+            ? "Active"
+            : "Inactive";
 
         employee.IsActive = isActive;
 
-        var result = await _users.UpdateAsync(employee);
+        var updated = await _users.UpdateAsync(employee);
 
-        if (!result.Succeeded)
+        if (!updated.Succeeded)
         {
-            return (false, result.Errors
-                .Select(error => error.Description)
-                .ToArray());
+            return (false, updated.Errors
+                .Select(e => e.Description).ToArray());
         }
 
-        // Force existing authentication sessions to be
-        // revalidated after the account status changes.
         var stampResult =
             await _users.UpdateSecurityStampAsync(employee);
 
         if (!stampResult.Succeeded)
         {
-            throw new InvalidOperationException(
-                "Employee status changed, but session invalidation failed.");
+            return (false, stampResult.Errors
+                .Select(e => e.Description).ToArray());
         }
+
+        _db.EmployeeAuditLogs.Add(new EmployeeAuditLog
+        {
+            ActorUserId = actingUserId,
+            TargetUserId = employeeId,
+            Action = "Employee.StatusChanged",
+            OldValue = oldStatus,
+            NewValue = newStatus,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return (true, Array.Empty<string>());
     }
+
 
 
 
