@@ -42,6 +42,10 @@ public class LocalDbContext
                 .HasMaxLength(200)
                 .IsRequired();
 
+            entity.HasIndex(p => p.Name)
+                .IsUnique()
+                .HasDatabaseName("UX_Products_Name");
+
             entity.Property(p => p.Price)
                 .HasPrecision(18, 2);
         });

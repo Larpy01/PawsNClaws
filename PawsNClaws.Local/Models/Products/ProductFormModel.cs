@@ -17,9 +17,6 @@ public sealed class ProductFormModel
     public string Name { get; set; } = string.Empty;
 
     [Range(typeof(decimal), "0", "9999999999999999.99")]
-    [RegularExpression(
-        @"^\d+(\.\d{1,2})?$",
-        ErrorMessage = "Enter a valid price with up to two decimal places.")]
     [Display(Name = "Selling Price (PHP)")]
     public decimal Price { get; set; }
 

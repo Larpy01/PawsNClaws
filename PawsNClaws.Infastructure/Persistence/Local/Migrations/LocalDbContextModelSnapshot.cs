@@ -218,6 +218,10 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Products_Name");
+
                     b.HasIndex("SKU")
                         .IsUnique();
 

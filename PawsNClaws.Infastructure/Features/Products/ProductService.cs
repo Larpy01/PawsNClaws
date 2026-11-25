@@ -58,7 +58,7 @@ public sealed class ProductService : IProductService
         cancellationToken.ThrowIfCancellationRequested();
 
         var sku = request.SKU?.Trim().ToUpperInvariant();
-        var name = request.Name?.Trim();
+        var name = NormalizeName(request.Name);
 
         var errors = ValidateProduct(sku, name, request.Price);
 
@@ -70,6 +70,13 @@ public sealed class ProductService : IProductService
             cancellationToken))
         {
             return (false, ["The product SKU already exists."]);
+        }
+
+        if (await _db.Products.AnyAsync(
+            p => p.Name == name,
+            cancellationToken))
+        {
+            return (false, ["The product name already exists."]);
         }
 
         var product = new Product
@@ -91,7 +98,7 @@ public sealed class ProductService : IProductService
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {
             _db.Entry(product).State = EntityState.Detached;
-            return (false, ["The product SKU already exists."]);
+            return (false, ["The product SKU or name already exists."]);
         }
 
         return (true, Array.Empty<string>());
@@ -105,7 +112,7 @@ public sealed class ProductService : IProductService
         cancellationToken.ThrowIfCancellationRequested();
 
         var sku = request.SKU?.Trim().ToUpperInvariant();
-        var name = request.Name?.Trim();
+        var name = NormalizeName(request.Name);
 
         var errors = ValidateProduct(sku, name, request.Price);
 
@@ -124,6 +131,15 @@ public sealed class ProductService : IProductService
             p => p.SKU == sku && p.Id != request.Id,
             cancellationToken);
 
+        bool duplicateName = await _db.Products.AnyAsync(
+            p => p.Name == name && p.Id != request.Id,
+            cancellationToken);
+
+        if (duplicateName)
+        {
+            return (false, ["The product name already exists."]);
+        }
+
         if (duplicateSku)
             return (false, ["The product SKU already exists."]);
 
@@ -140,7 +156,7 @@ public sealed class ProductService : IProductService
         {
             // Do not leave invalid changes tracked by this context.
             _db.Entry(product).State = EntityState.Detached;
-            return (false, ["The product SKU already exists."]);
+            return (false, ["The product SKU or name already exists."]);
         }
 
         return (true, Array.Empty<string>());
@@ -179,5 +195,13 @@ public sealed class ProductService : IProductService
     {
         return exception.InnerException is SqlException sqlException
             && sqlException.Number is 2601 or 2627;
+    }
+
+    private static string NormalizeName(string? name)
+    {
+        return string.Join(" ",
+            (name ?? string.Empty)
+                .Split((char[]?)null,
+                    StringSplitOptions.RemoveEmptyEntries));
     }
 }
