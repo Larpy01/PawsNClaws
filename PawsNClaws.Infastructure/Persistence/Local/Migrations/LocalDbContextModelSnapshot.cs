@@ -190,6 +190,171 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.ToTable("EmployeeAuditLogs");
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MovementType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PerformedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("QuantityAfter")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuantityBefore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuantityChange")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("StockOutReason")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperationId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_InventoryMovements_OperationId");
+
+                    b.HasIndex("PerformedByUserId");
+
+                    b.HasIndex("ProductId", "CreatedAtUtc");
+
+                    b.ToTable("InventoryMovements", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_InventoryMovements_Direction", "([MovementType] IN ('StockIn', 'SaleReversal') AND [QuantityChange] > 0) OR ([MovementType] IN ('StockOut', 'Sale') AND [QuantityChange] < 0) OR ([MovementType] = 'Adjustment')");
+
+                            t.HasCheckConstraint("CK_InventoryMovements_MovementType", "[MovementType] IN ('StockIn', 'StockOut', 'Adjustment', 'Sale', 'SaleReversal')");
+
+                            t.HasCheckConstraint("CK_InventoryMovements_QuantityAfter", "[QuantityAfter] >= 0");
+
+                            t.HasCheckConstraint("CK_InventoryMovements_QuantityBalance", "CAST([QuantityAfter] AS bigint) = CAST([QuantityBefore] AS bigint) + [QuantityChange]");
+
+                            t.HasCheckConstraint("CK_InventoryMovements_QuantityBefore", "[QuantityBefore] >= 0");
+
+                            t.HasCheckConstraint("CK_InventoryMovements_QuantityChange", "[QuantityChange] <> 0");
+
+                            t.HasCheckConstraint("CK_InventoryMovements_StockOutReason", "(\r\n    [MovementType] = 'StockOut'\r\n    AND [StockOutReason] IS NOT NULL\r\n    AND [StockOutReason] IN\r\n    (\r\n        'Defective',\r\n        'Expired',\r\n        'DamagedUponDelivery',\r\n        'TornPackaging',\r\n        'DamagedInStore',\r\n        'Other'\r\n    )\r\n    AND [Reason] IS NOT NULL\r\n    AND LEN(LTRIM(RTRIM([Reason]))) > 0\r\n)\r\nOR\r\n(\r\n    [MovementType] <> 'StockOut'\r\n    AND [StockOutReason] IS NULL\r\n)");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovementEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("InventoryMovementId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Sha256Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventoryMovementId");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_InventoryMovementEvidence_StorageKey");
+
+                    b.HasIndex("UploadedByUserId");
+
+                    b.ToTable("InventoryMovementEvidence", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_InventoryMovementEvidence_ContentType", "[ContentType] IN ('image/jpeg', 'image/png')");
+
+                            t.HasCheckConstraint("CK_InventoryMovementEvidence_FileSize", "[FileSizeBytes] > 0 AND [FileSizeBytes] <= 5242880");
+
+                            t.HasCheckConstraint("CK_InventoryMovementEvidence_HashLength", "LEN([Sha256Hash]) = 64");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryStock", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("QuantityOnHand")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReorderLevel")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_InventoryStocks_ProductId");
+
+                    b.ToTable("InventoryStocks", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_InventoryStocks_QuantityOnHand", "[QuantityOnHand] >= 0");
+
+                            t.HasCheckConstraint("CK_InventoryStocks_ReorderLevel", "[ReorderLevel] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -358,6 +523,56 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovement", b =>
+                {
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PerformedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovementEvidence", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.InventoryMovement", "InventoryMovement")
+                        .WithMany("Evidence")
+                        .HasForeignKey("InventoryMovementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("InventoryMovement");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryStock", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.Product", "Product")
+                        .WithOne()
+                        .HasForeignKey("PawsNClaws.Domain.Entities.InventoryStock", "ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovement", b =>
+                {
+                    b.Navigation("Evidence");
                 });
 #pragma warning restore 612, 618
         }
