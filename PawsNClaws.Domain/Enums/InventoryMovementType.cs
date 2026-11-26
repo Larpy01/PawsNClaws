@@ -6,5 +6,7 @@ public enum InventoryMovementType
     StockOut = 2,
     Adjustment = 3,
     Sale = 4,
-    SaleReversal = 5
+    SaleReversal = 5,
+    GroomingUsage = 6,
+    GroomingUsageCorrection = 7
 }

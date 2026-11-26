@@ -1,0 +1,17 @@
+@model PawsNClaws.Application.Features.Inventory.RequestLine
+@{
+    ViewData["Title"] = "Stock Out request";
+}
+<h1>Stock Out request</h1>
+<dl class="row">
+    <dt class="col-sm-3">Product</dt><dd class="col-sm-9">@Model.Product</dd>
+    <dt class="col-sm-3">Quantity</dt><dd class="col-sm-9">@Model.Quantity.ToString("0.###")</dd>
+    <dt class="col-sm-3">Reason</dt><dd class="col-sm-9">@Model.ReasonCategory · @Model.Reason</dd>
+    <dt class="col-sm-3">Submitted</dt><dd class="col-sm-9">@Model.SubmittedAtUtc.ToLocalTime().ToString("g")</dd>
+    <dt class="col-sm-3">Decision</dt><dd class="col-sm-9">@Model.Status @Model.Decision</dd>
+</dl>
+@foreach (var photo in Model.Evidence)
+{
+    <a class="me-2" asp-action="Evidence" asp-route-source="@photo.Source" asp-route-id="@photo.Id">Download photo</a>
+}
+<a asp-action="Index" class="btn btn-link">Back to inventory</a>

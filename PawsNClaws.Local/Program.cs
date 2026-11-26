@@ -5,14 +5,16 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PawsNClaws.Application.Features.Authentication.Interfaces;
 using PawsNClaws.Application.Features.Employees.Interfaces;
+using PawsNClaws.Application.Features.Inventory;
 using PawsNClaws.Application.Features.Products.Interfaces;
 using PawsNClaws.Infastructure.Features.Products;
+using PawsNClaws.Infastructure.Features.Inventory;
 using PawsNClaws.Infastructure.Identity.Local;
 using PawsNClaws.Infastructure.Persistence.Local;
 using PawsNClaws.Local;
 using PawsNClaws.Local.Controllers;
 
-var isTechnicalCommand = args.FirstOrDefault() is TechnicalAccountCommands.Enroll or TechnicalAccountCommands.ResetPassword;
+var isTechnicalCommand = args.FirstOrDefault() == TechnicalAccountCommands.ResetPassword;
 var builder = WebApplication.CreateBuilder(isTechnicalCommand ? [] : args);
 
 // Add services to the container.
@@ -123,6 +125,14 @@ builder.Services.AddAuthorization(options =>
         options.AddPolicy(permission, policy =>
         {
             policy.RequireAuthenticatedUser();
+            if (permission == Permissions.GroomingCatalogManage)
+                policy.RequireRole(LocalRoles.Admin, LocalRoles.Manager);
+            if (permission == Permissions.CustomerRecordsManage)
+                policy.RequireRole(LocalRoles.Admin, LocalRoles.Manager, LocalRoles.Cashier);
+            if (permission is Permissions.ProductsView or Permissions.ProductsCreate or Permissions.ProductsUpdate)
+                policy.RequireRole(LocalRoles.Manager, LocalRoles.Admin);
+            if (permission is Permissions.UsersView or Permissions.UsersCreate or Permissions.UsersAssignRoles or Permissions.UsersChangeStatus)
+                policy.RequireRole(LocalRoles.Admin);
             if (permission == Permissions.TechnicalDashboardView)
                 policy.AddAuthenticationSchemes(TechnicalAccountController.Scheme);
 
@@ -162,6 +172,12 @@ builder.Services.AddScoped<
     EmployeeAuditLogService>();
 
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Customers.ICustomerRecords, PawsNClaws.Infastructure.Features.Customers.CustomerRecords>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Grooming.IGroomingCatalog,
+    PawsNClaws.Infastructure.Features.Grooming.GroomingCatalog>();
+builder.Services.AddSingleton(_ => new InventoryEvidenceStore(Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PawsNClaws", "InventoryEvidence")));
 
 
 
@@ -227,7 +243,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapStaticAssets();
+app.MapStaticAssets().AllowAnonymous();
 
 app.MapControllerRoute(
     name: "default",

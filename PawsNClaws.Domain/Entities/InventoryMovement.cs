@@ -14,11 +14,15 @@ public sealed class InventoryMovement
 
     public StockOutReason? StockOutReason { get; set; }
 
-    public int QuantityChange { get; set; }
+    public decimal QuantityChange { get; set; }
 
-    public int QuantityBefore { get; set; }
+    public decimal QuantityBefore { get; set; }
 
-    public int QuantityAfter { get; set; }
+    public decimal QuantityAfter { get; set; }
+
+    public Guid? ReversesMovementId { get; set; }
+    public Guid? UsageEstimateId { get; set; }
+    public ICollection<InventoryMovementAllocation> Allocations { get; set; } = new List<InventoryMovementAllocation>();
 
     public string? Reason { get; set; }
 
@@ -29,6 +33,10 @@ public sealed class InventoryMovement
 
     public Guid OperationId { get; set; }
         = Guid.NewGuid();
+
+    public Guid? StockOutRequestId { get; set; }
+
+    public StockOutRequest? StockOutRequest { get; set; }
 
     public ICollection<InventoryMovementEvidence> Evidence
     { get; set; } = new List<InventoryMovementEvidence>();

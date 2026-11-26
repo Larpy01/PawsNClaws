@@ -78,7 +78,9 @@ public sealed class AuthenticationAndAuthorizationTests(LocalAppFactory app)
     [InlineData(LocalRoles.Admin, "/Employees/Create", true)]
     [InlineData(LocalRoles.Cashier, "/Employees/Create", false)]
     [InlineData(LocalRoles.Cashier, "/Products/Create", false)]
-    [InlineData(LocalRoles.InventoryStaff, "/Products/Create", true)]
+    [InlineData(LocalRoles.InventoryStaff, "/Products/Create", false)]
+    [InlineData(LocalRoles.Manager, "/Products/Create", true)]
+    [InlineData(LocalRoles.Admin, "/Products/Create", true)]
     public async Task Seeded_role_permissions_control_access(string role, string path, bool authorized)
     {
         var employee = await app.CreateEmployeeAsync(role);
@@ -92,6 +94,44 @@ public sealed class AuthenticationAndAuthorizationTests(LocalAppFactory app)
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         else
             AssertRedirectTo(response, "/Account/AccessDenied");
+    }
+
+    [Theory]
+    [InlineData(LocalRoles.InventoryStaff)]
+    [InlineData(LocalRoles.Cashier)]
+    [InlineData(LocalRoles.Groomer)]
+    public async Task Staff_cannot_access_management_modules_even_with_legacy_grants(string role)
+    {
+        var employee = await app.CreateEmployeeAsync(role);
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<LocalApplicationUser>>();
+            var account = await users.FindByIdAsync(employee.Id.ToString());
+            Assert.NotNull(account);
+            var permissions = new[] { Permissions.ProductsView, Permissions.ProductsCreate, Permissions.UsersView };
+            TestEmployee.AssertSucceeded(await users.AddClaimsAsync(account,
+                permissions.Select(p => new Claim(LocalRoleSeeder.PermissionClaimType, p))));
+        }
+
+        using var client = app.CreateBrowser();
+        using var login = await LocalAppFactory.SignInAsync(client, employee);
+        AssertRedirectTo(login, "/");
+        var token = TestContext.Current.CancellationToken;
+        var dashboard = await client.GetStringAsync("/Dashboard", token);
+        Assert.DoesNotContain("href=\"/Products", dashboard);
+        Assert.DoesNotContain("href=\"/Employees", dashboard);
+        foreach (var path in new[] { "/Products", "/Products/Create", "/Products/Edit", "/Employees" })
+        {
+            using var response = await client.GetAsync(path, token);
+            AssertRedirectTo(response, "/Account/AccessDenied");
+        }
+
+        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = await LocalAppFactory.GetAntiforgeryTokenAsync(client, "/Dashboard")
+        });
+        using var post = await client.PostAsync("/Products/Create", form, token);
+        AssertRedirectTo(post, "/Account/AccessDenied");
     }
 
     [Fact]

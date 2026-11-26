@@ -30,7 +30,7 @@ public sealed class TechnicalAccountController(TechnicalAuthenticationService au
         if (ModelState.IsValid)
         {
             var principal = await authentication.SignInAsync(
-                model.Email, model.Password, model.Code, model.UseRecoveryCode);
+                model.Email, model.Password);
             if (principal is not null)
             {
                 await HttpContext.SignInAsync(Scheme, principal);
@@ -39,10 +39,9 @@ public sealed class TechnicalAccountController(TechnicalAuthenticationService au
 
         }
 
-        model.Code = model.Password = "";
-        ModelState.Remove(nameof(model.Code));
+        model.Password = "";
         ModelState.Remove(nameof(model.Password));
-        ModelState.AddModelError(string.Empty, "Unable to sign in. Check your credentials and code.");
+        ModelState.AddModelError(string.Empty, "Unable to sign in. Check your email and password.");
         return View(model);
     }
 

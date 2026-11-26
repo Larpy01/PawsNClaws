@@ -7,7 +7,6 @@ namespace PawsNClaws.Local;
 
 internal static class TechnicalAccountCommands
 {
-    internal const string Enroll = "--enroll-technical-mfa";
     internal const string ResetPassword = "--reset-technical-password";
 
     internal static async Task RunAsync(WebApplication app, string[] args)
@@ -22,39 +21,18 @@ internal static class TechnicalAccountCommands
         if (user is not { IsActive: true } || !await users.IsInRoleAsync(user, LocalRoles.SuperAdmin))
             throw new InvalidOperationException("An active, named SuperAdmin account is required.");
 
-        if (args[0] == ResetPassword)
-        {
-            Console.Write("New password (hidden): ");
-            var password = ReadPassword();
-            Console.Write("Confirm password (hidden): ");
-            if (password != ReadPassword())
-                throw new InvalidOperationException("The passwords do not match.");
+        Console.Write("New password (hidden): ");
+        var password = ReadPassword();
+        Console.Write("Confirm password (hidden): ");
+        if (password != ReadPassword())
+            throw new InvalidOperationException("The passwords do not match.");
 
-            await using var transaction = await db.Database.BeginTransactionAsync();
-            EnsureSuccess(await users.ResetPasswordAsync(user, await users.GeneratePasswordResetTokenAsync(user), password));
-            EnsureSuccess(await users.SetLockoutEndDateAsync(user, null));
-            EnsureSuccess(await users.ResetAccessFailedCountAsync(user));
-            await transaction.CommitAsync();
-            app.Logger.LogWarning("Operator reset a technical password. UserId={UserId}", user.Id);
-            return;
-        }
-
-        await using var enrollment = await db.Database.BeginTransactionAsync();
-        EnsureSuccess(await users.ResetAuthenticatorKeyAsync(user));
-        EnsureSuccess(await users.SetTwoFactorEnabledAsync(user, true));
-        var key = await users.GetAuthenticatorKeyAsync(user);
-        var recoveryCodes = await users.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
-        if (string.IsNullOrEmpty(key) || recoveryCodes is null)
-            throw new InvalidOperationException("Authenticator provisioning failed.");
-
-        EnsureSuccess(await users.UpdateSecurityStampAsync(user));
-        await enrollment.CommitAsync();
-        app.Logger.LogWarning("Operator provisioned or rotated technical MFA. UserId={UserId}", user.Id);
-        Console.WriteLine("Add this setup key to your authenticator app using time-based codes.");
-        Console.WriteLine(key);
-        Console.WriteLine("Store these single-use recovery codes offline.");
-        foreach (var recoveryCode in recoveryCodes)
-            Console.WriteLine(recoveryCode);
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        EnsureSuccess(await users.ResetPasswordAsync(user, await users.GeneratePasswordResetTokenAsync(user), password));
+        EnsureSuccess(await users.SetLockoutEndDateAsync(user, null));
+        EnsureSuccess(await users.ResetAccessFailedCountAsync(user));
+        await transaction.CommitAsync();
+        app.Logger.LogWarning("Operator reset a technical password. UserId={UserId}", user.Id);
     }
 
     private static string ReadPassword()

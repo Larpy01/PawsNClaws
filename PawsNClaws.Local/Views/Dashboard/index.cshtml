@@ -1,5 +1,7 @@
 ﻿@model PawsNClaws.Local.Models.DashboardViewModel
 @using PawsNClaws.Infastructure.Identity.Local
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService AuthorizationService
 
 @{
     ViewData["Title"] = "Employee Dashboard";
@@ -30,6 +32,30 @@
     </div>
 
     <div class="row g-3">
+        @if ((await AuthorizationService.AuthorizeAsync(User, Permissions.GroomingCatalogManage)).Succeeded)
+        {
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5>Grooming Services</h5>
+                        <p class="text-muted">Set up services, durations, and pet eligibility.</p>
+                        <a asp-controller="GroomingCatalog" asp-action="Index" class="btn btn-primary">Open grooming catalog</a>
+                    </div>
+                </div>
+            </div>
+        }
+        @if ((await AuthorizationService.AuthorizeAsync(User, Permissions.CustomerRecordsManage)).Succeeded)
+        {
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5>Customers &amp; Pets</h5>
+                        <p class="text-muted">Find an owner, register a walk-in, or update a pet profile.</p>
+                        <a asp-controller="Customers" asp-action="Index" class="btn btn-primary">Open customer records</a>
+                    </div>
+                </div>
+            </div>
+        }
 
         @if (User.HasClaim("Permission", Permissions.PosAccess))
         {
@@ -55,11 +81,22 @@
                     <div class="card-body">
                         <h5>Inventory</h5>
                         <p class="text-muted">
-                            Manage products and stock.
+                            Receive stock, review batches, and track stock movements.
                         </p>
-                        <span class="badge bg-info text-dark">
-                            Coming Soon
-                        </span>
+                        <a asp-controller="Inventory" asp-action="Index" class="btn btn-primary">Open Inventory</a>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if ((await AuthorizationService.AuthorizeAsync(User, Permissions.ProductsView)).Succeeded)
+        {
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5>Products</h5>
+                        <p class="text-muted">Browse the product catalog.</p>
+                        <a asp-controller="Products" asp-action="Index" class="btn btn-primary">View Products</a>
                     </div>
                 </div>
             </div>
@@ -82,7 +119,7 @@
             </div>
         }
 
-        @if (User.HasClaim("Permission", Permissions.UsersView))
+        @if ((await AuthorizationService.AuthorizeAsync(User, Permissions.UsersView)).Succeeded)
         {
             <div class="col-md-4">
                 <div class="card h-100">
@@ -91,13 +128,11 @@
                         <p class="text-muted">
                             Manage employee accounts.
                         </p>
-                        <span class="badge bg-info text-dark">
-                            <a asp-controller="Employees"
-                               asp-action="Index"
-                               class="btn btn-primary">
-                                Manage Employees
-                            </a>
-                        </span>
+                        <a asp-controller="Employees" asp-action="Index" class="btn btn-primary">Manage Employees</a>
+                        @if (User.IsInRole(LocalRoles.Admin))
+                        {
+                            <a asp-controller="EmployeeAuditLogs" asp-action="Index" class="btn btn-outline-secondary">View audit log</a>
+                        }
                     </div>
                 </div>
             </div>

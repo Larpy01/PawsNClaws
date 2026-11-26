@@ -1,10 +1,12 @@
-﻿
+
 using System.Reflection;
 
 namespace PawsNClaws.Infastructure.Identity.Local;
 
 public static class Permissions
 {
+    public const string CustomerRecordsManage = "Customers.Manage";
+    public const string GroomingCatalogManage = "GroomingCatalog.Manage";
     public const string DashboardView = "Dashboard.View";
 
     public const string ProductsView = "Products.View";
@@ -13,6 +15,10 @@ public static class Permissions
 
     public const string InventoryView = "Inventory.View";
     public const string InventoryAdjust = "Inventory.Adjust";
+    public const string InventoryReceive = "Inventory.Receive";
+    public const string InventorySubmit = "Inventory.SubmitDisposal";
+    public const string InventoryReview = "Inventory.ReviewDisposal";
+    public const string InventoryUse = "Inventory.GroomingUsage";
 
     public const string PosAccess = "POS.Access";
     public const string PosCreateSale = "POS.CreateSale";

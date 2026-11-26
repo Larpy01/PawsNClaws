@@ -8,9 +8,9 @@ public sealed class InventoryStock
 
     public Product Product { get; set; } = null!;
 
-    public int QuantityOnHand { get; set; }
+    public decimal QuantityOnHand { get; set; }
 
-    public int ReorderLevel { get; set; }
+    public decimal ReorderLevel { get; set; }
 
     public DateTime UpdatedAtUtc { get; set; }
         = DateTime.UtcNow;

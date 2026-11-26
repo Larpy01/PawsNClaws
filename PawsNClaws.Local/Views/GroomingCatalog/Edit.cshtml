@@ -1,0 +1,91 @@
+@model PawsNClaws.Application.Features.Grooming.GroomingServiceForm
+@{
+    ViewData["Title"] = ViewContext.RouteData.Values["id"] is null ? "Add grooming service" : "Edit grooming service";
+    var species = Model.Species?.Trim() ?? "";
+    var breeds = PetOptions.BreedsBySpecies.GetValueOrDefault(species) ?? [];
+}
+<h1>@ViewData["Title"]</h1>
+<form method="post" class="col-lg-7">
+    @Html.AntiForgeryToken()
+    <input asp-for="Version" type="hidden" />
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" maxlength="120" required />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label"></label>
+        <textarea asp-for="Description" class="form-control" maxlength="500"></textarea>
+    </div>
+    <div class="mb-3">
+        <label asp-for="DurationMinutes" class="form-label"></label>
+        <input asp-for="DurationMinutes" class="form-control" min="1" />
+    </div>
+    <fieldset class="mb-3">
+        <legend class="h5">Pet eligibility</legend>
+        <p class="form-text">Choose All to leave a field unrestricted. To select a breed, choose its species first.</p>
+        <div class="row g-3">
+            <div class="col-sm">
+                <label asp-for="Species" class="form-label"></label>
+                <select asp-for="Species" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var option in PetOptions.BreedsBySpecies.Keys)
+                    {
+                        <option value="@option">@option</option>
+                    }
+                    @if (species.Length > 0 && !PetOptions.BreedsBySpecies.ContainsKey(species))
+                    {
+                        <option value="@species">@species</option>
+                    }
+                </select>
+            </div>
+            <div class="col-sm">
+                <label asp-for="Breed" class="form-label"></label>
+                <select asp-for="Breed" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var option in breeds)
+                    {
+                        <option value="@option">@option</option>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Breed) && !breeds.Contains(Model.Breed, StringComparer.OrdinalIgnoreCase))
+                    {
+                        <option value="@Model.Breed">@Model.Breed</option>
+                    }
+                </select>
+                <template id="eligibility-breeds">
+                    @foreach (var (group, options) in PetOptions.BreedsBySpecies)
+                    {
+                        @foreach (var option in options)
+                        {
+                            <option data-species="@group" value="@option">@option</option>
+                        }
+                    }
+                </template>
+            </div>
+            <div class="col-sm">
+                <label asp-for="Size" class="form-label"></label>
+                <select asp-for="Size" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var option in PetOptions.Sizes)
+                    {
+                        <option value="@option">@option</option>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Size) && !PetOptions.Sizes.Contains(Model.Size, StringComparer.OrdinalIgnoreCase))
+                    {
+                        <option value="@Model.Size">@Model.Size</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </fieldset>
+    <div class="form-check mb-3">
+        <input asp-for="IsActive" class="form-check-input" />
+        <label asp-for="IsActive" class="form-check-label"></label>
+    </div>
+    <button type="submit" class="btn btn-primary">Save service</button>
+    <a asp-action="Index" class="btn btn-link">Cancel</a>
+</form>
+
+@section Scripts {
+    <script src="~/js/grooming-eligibility.js" asp-append-version="true"></script>
+}

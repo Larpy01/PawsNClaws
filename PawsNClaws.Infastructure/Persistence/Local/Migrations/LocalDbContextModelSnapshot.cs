@@ -153,6 +153,48 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.CustomerRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<bool>("RecordConsent")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LastName", "FirstName");
+
+                    b.ToTable("CustomerRecords", (string)null);
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.EmployeeAuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -190,6 +232,131 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.ToTable("EmployeeAuditLogs");
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingService", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Breed")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Size")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Species")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("GroomingServices", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GroomingServices_Duration", "([DurationMinutes] IS NULL AND [IsActive] = 0) OR ([DurationMinutes] IS NOT NULL AND [DurationMinutes] > 0)");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingUsageEstimate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("JobReference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorId");
+
+                    b.HasIndex("ProductId", "JobReference")
+                        .IsUnique();
+
+                    b.ToTable("GroomingUsageEstimates", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GroomingUsageEstimates_Quantity", "[Quantity] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("ExpiryDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Lot")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("OnHand")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quarantined")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<DateTime?>("ReceivedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId", "ExpiryDate", "ReceivedAtUtc");
+
+                    b.ToTable("InventoryBatches", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_InventoryBatches_Balance", "[Quarantined] >= 0 AND [OnHand] >= [Quarantined]");
+                        });
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -213,22 +380,34 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("QuantityAfter")
-                        .HasColumnType("int");
+                    b.Property<decimal>("QuantityAfter")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
 
-                    b.Property<int>("QuantityBefore")
-                        .HasColumnType("int");
+                    b.Property<decimal>("QuantityBefore")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
 
-                    b.Property<int>("QuantityChange")
-                        .HasColumnType("int");
+                    b.Property<decimal>("QuantityChange")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
 
                     b.Property<string>("Reason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid?>("ReversesMovementId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("StockOutReason")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("StockOutRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UsageEstimateId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -238,23 +417,60 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
 
                     b.HasIndex("PerformedByUserId");
 
+                    b.HasIndex("ReversesMovementId")
+                        .IsUnique()
+                        .HasFilter("[ReversesMovementId] IS NOT NULL");
+
+                    b.HasIndex("UsageEstimateId")
+                        .IsUnique()
+                        .HasFilter("[UsageEstimateId] IS NOT NULL");
+
                     b.HasIndex("ProductId", "CreatedAtUtc");
+
+                    b.HasIndex("StockOutRequestId", "ProductId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_InventoryMovements_StockOutRequestId")
+                        .HasFilter("[StockOutRequestId] IS NOT NULL");
 
                     b.ToTable("InventoryMovements", null, t =>
                         {
-                            t.HasCheckConstraint("CK_InventoryMovements_Direction", "([MovementType] IN ('StockIn', 'SaleReversal') AND [QuantityChange] > 0) OR ([MovementType] IN ('StockOut', 'Sale') AND [QuantityChange] < 0) OR ([MovementType] = 'Adjustment')");
+                            t.HasCheckConstraint("CK_InventoryMovements_Direction", "([MovementType] IN ('StockIn', 'SaleReversal', 'GroomingUsageCorrection') AND [QuantityChange] > 0) OR ([MovementType] IN ('StockOut', 'Sale', 'GroomingUsage') AND [QuantityChange] < 0) OR ([MovementType] = 'Adjustment')");
 
-                            t.HasCheckConstraint("CK_InventoryMovements_MovementType", "[MovementType] IN ('StockIn', 'StockOut', 'Adjustment', 'Sale', 'SaleReversal')");
+                            t.HasCheckConstraint("CK_InventoryMovements_MovementType", "[MovementType] IN ('StockIn', 'StockOut', 'Adjustment', 'Sale', 'SaleReversal', 'GroomingUsage', 'GroomingUsageCorrection')");
 
                             t.HasCheckConstraint("CK_InventoryMovements_QuantityAfter", "[QuantityAfter] >= 0");
 
-                            t.HasCheckConstraint("CK_InventoryMovements_QuantityBalance", "CAST([QuantityAfter] AS bigint) = CAST([QuantityBefore] AS bigint) + [QuantityChange]");
+                            t.HasCheckConstraint("CK_InventoryMovements_QuantityBalance", "[QuantityAfter] = [QuantityBefore] + [QuantityChange]");
 
                             t.HasCheckConstraint("CK_InventoryMovements_QuantityBefore", "[QuantityBefore] >= 0");
 
                             t.HasCheckConstraint("CK_InventoryMovements_QuantityChange", "[QuantityChange] <> 0");
 
                             t.HasCheckConstraint("CK_InventoryMovements_StockOutReason", "(\r\n    [MovementType] = 'StockOut'\r\n    AND [StockOutReason] IS NOT NULL\r\n    AND [StockOutReason] IN\r\n    (\r\n        'Defective',\r\n        'Expired',\r\n        'DamagedUponDelivery',\r\n        'TornPackaging',\r\n        'DamagedInStore',\r\n        'Other'\r\n    )\r\n    AND [Reason] IS NOT NULL\r\n    AND LEN(LTRIM(RTRIM([Reason]))) > 0\r\n)\r\nOR\r\n(\r\n    [MovementType] <> 'StockOut'\r\n    AND [StockOutReason] IS NULL\r\n)");
+
+                            t.HasCheckConstraint("CK_InventoryMovements_StockOutRequest", "[StockOutRequestId] IS NULL OR [MovementType] = 'StockOut'");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovementAllocation", b =>
+                {
+                    b.Property<Guid>("MovementId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("QuantityChange")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.HasKey("MovementId", "BatchId");
+
+                    b.HasIndex("BatchId");
+
+                    b.ToTable("InventoryMovementAllocations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_InventoryMovementAllocations_Quantity", "[QuantityChange] <> 0");
                         });
                 });
 
@@ -317,6 +533,42 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         });
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryQuarantineEvent", b =>
+                {
+                    b.Property<Guid>("OperationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("QuantityChange")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("OperationId");
+
+                    b.HasIndex("ActorId");
+
+                    b.HasIndex("BatchId");
+
+                    b.ToTable("InventoryQuarantineEvents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_InventoryQuarantineEvents_Quantity", "[QuantityChange] <> 0");
+                        });
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryStock", b =>
                 {
                     b.Property<Guid>("Id")
@@ -326,11 +578,13 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("QuantityOnHand")
-                        .HasColumnType("int");
+                    b.Property<decimal>("QuantityOnHand")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
 
-                    b.Property<int>("ReorderLevel")
-                        .HasColumnType("int");
+                    b.Property<decimal>("ReorderLevel")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -355,16 +609,132 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         });
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventorySupplier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("InventorySuppliers", (string)null);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.PetRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Allergies")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("BehaviorNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Breed")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date");
+
+                    b.Property<string>("MedicalNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Sex")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Size")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("SpecialInstructions")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Species")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("VaccinationStatus")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("WeightKg")
+                        .HasPrecision(8, 3)
+                        .HasColumnType("decimal(8,3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId", "Name");
+
+                    b.ToTable("PetRecords", (string)null);
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.Product", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsConsumable")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSellable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsVisibleOnline")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")
@@ -381,7 +751,25 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<bool>("TracksExpiry")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasDefaultValue("Each");
+
+                    b.Property<decimal?>("UnitCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Barcode")
+                        .IsUnique()
+                        .HasFilter("[Barcode] IS NOT NULL");
 
                     b.HasIndex("Name")
                         .IsUnique()
@@ -391,6 +779,301 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .IsUnique();
 
                     b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.ProfileChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RecordVersion")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("SyncedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("PetId");
+
+                    b.HasIndex("RecordVersion")
+                        .IsUnique();
+
+                    b.ToTable("ProfileChanges", (string)null);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.StockOutRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DecidedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DecidedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DecisionComment")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReasonCategory")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("SubmissionOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SubmittedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SubmittedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DecidedByUserId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SubmissionOperationId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_StockOutRequests_SubmissionOperationId");
+
+                    b.HasIndex("SubmittedByUserId");
+
+                    b.HasIndex("BatchId", "ProductId");
+
+                    b.HasIndex("Status", "SubmittedAtUtc");
+
+                    b.ToTable("StockOutRequests", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_StockOutRequests_Decision", "([Status] = 'Pending' AND [DecidedByUserId] IS NULL AND [DecidedAtUtc] IS NULL AND [DecisionComment] IS NULL)\nOR\n([Status] IN ('Approved', 'Rejected', 'Cancelled') AND [DecidedByUserId] IS NOT NULL\n    AND [DecidedAtUtc] IS NOT NULL AND [DecidedAtUtc] >= [SubmittedAtUtc]\n    AND ([Status] = 'Cancelled' OR [DecidedByUserId] <> [SubmittedByUserId])\n    AND ([Status] <> 'Rejected'\n        OR ([DecisionComment] IS NOT NULL AND LEN(LTRIM(RTRIM([DecisionComment]))) > 0)))");
+
+                            t.HasCheckConstraint("CK_StockOutRequests_Quantity", "[Quantity] > 0");
+
+                            t.HasCheckConstraint("CK_StockOutRequests_Reason", "LEN(LTRIM(RTRIM([Reason]))) > 0");
+
+                            t.HasCheckConstraint("CK_StockOutRequests_ReasonCategory", "[ReasonCategory] IN ('Defective', 'Expired', 'DamagedUponDelivery', 'TornPackaging', 'DamagedInStore', 'Other')");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.StockOutRequestEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Sha256Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<Guid>("StockOutRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StockOutRequestId");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_StockOutRequestEvidence_StorageKey");
+
+                    b.HasIndex("UploadedByUserId");
+
+                    b.ToTable("StockOutRequestEvidence", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_StockOutRequestEvidence_ContentType", "[ContentType] IN ('image/jpeg', 'image/png')");
+
+                            t.HasCheckConstraint("CK_StockOutRequestEvidence_FileSize", "[FileSizeBytes] > 0 AND [FileSizeBytes] <= 5242880");
+
+                            t.HasCheckConstraint("CK_StockOutRequestEvidence_HashLength", "LEN([Sha256Hash]) = 64");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.StockReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Accepted")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Delivered")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<DateOnly?>("ExpiryDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Lot")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("Rejected")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Supplier")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("UnitCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SupplierId");
+
+                    b.HasIndex("BatchId", "ProductId");
+
+                    b.ToTable("StockReceipts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_StockReceipts_Quantities", "[Delivered] > 0 AND [Accepted] >= 0 AND [Rejected] >= 0 AND [Delivered] = [Accepted] + [Rejected]");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.StockReceiptEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Sha256Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<Guid>("StockReceiptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StockReceiptId");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique();
+
+                    b.ToTable("StockReceiptEvidence", (string)null);
                 });
 
             modelBuilder.Entity("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", b =>
@@ -525,6 +1208,30 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingUsageEstimate", b =>
+                {
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryBatch", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovement", b =>
                 {
                     b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
@@ -539,7 +1246,40 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("PawsNClaws.Domain.Entities.InventoryMovement", null)
+                        .WithMany()
+                        .HasForeignKey("ReversesMovementId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingUsageEstimate", null)
+                        .WithMany()
+                        .HasForeignKey("UsageEstimateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PawsNClaws.Domain.Entities.StockOutRequest", "StockOutRequest")
+                        .WithOne("Movement")
+                        .HasForeignKey("PawsNClaws.Domain.Entities.InventoryMovement", "StockOutRequestId", "ProductId")
+                        .HasPrincipalKey("PawsNClaws.Domain.Entities.StockOutRequest", "Id", "ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Product");
+
+                    b.Navigation("StockOutRequest");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovementAllocation", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.InventoryMovement", null)
+                        .WithMany("Allocations")
+                        .HasForeignKey("MovementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovementEvidence", b =>
@@ -559,6 +1299,21 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.Navigation("InventoryMovement");
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryQuarantineEvent", b =>
+                {
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryStock", b =>
                 {
                     b.HasOne("PawsNClaws.Domain.Entities.Product", "Product")
@@ -570,7 +1325,125 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.PetRecord", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.CustomerRecord", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.ProfileChange", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.CustomerRecord", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.PetRecord", null)
+                        .WithMany()
+                        .HasForeignKey("PetId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.StockOutRequest", b =>
+                {
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("DecidedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PawsNClaws.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("SubmittedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("BatchId", "ProductId")
+                        .HasPrincipalKey("Id", "ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.StockOutRequestEvidence", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.StockOutRequest", "StockOutRequest")
+                        .WithMany("Evidence")
+                        .HasForeignKey("StockOutRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("StockOutRequest");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.StockReceipt", b =>
+                {
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.InventorySupplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("BatchId", "ProductId")
+                        .HasPrincipalKey("Id", "ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.StockReceiptEvidence", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.StockReceipt", null)
+                        .WithMany("Evidence")
+                        .HasForeignKey("StockReceiptId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovement", b =>
+                {
+                    b.Navigation("Allocations");
+
+                    b.Navigation("Evidence");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.StockOutRequest", b =>
+                {
+                    b.Navigation("Evidence");
+
+                    b.Navigation("Movement");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.StockReceipt", b =>
                 {
                     b.Navigation("Evidence");
                 });

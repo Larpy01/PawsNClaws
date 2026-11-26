@@ -20,7 +20,7 @@
         </p>
     </div>
 
-    @if (User.HasClaim("Permission", Permissions.ProductsCreate))
+    @if (canCreate)
     {
         <a asp-action="Create" class="btn btn-primary">
             Add Product
@@ -94,7 +94,7 @@
                                     @product.CreatedAtUtc.ToString("yyyy-MM-dd")
                                 </td>
                                 <td class="text-end">
-                                    @if (User.HasClaim("Permission", Permissions.ProductsUpdate))
+                                    @if (canUpdate)
                                     {
                                         <a asp-action="Edit"
                                            asp-route-id="@product.Id"

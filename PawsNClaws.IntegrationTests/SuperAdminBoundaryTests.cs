@@ -61,9 +61,8 @@ public sealed class SuperAdminBoundaryTests(LocalAppFactory app) : IClassFixture
         }
 
         var cancellationToken = TestContext.Current.CancellationToken;
-        var enrollment = await TechnicalAuthenticationTests.EnrollAsync(app, employee);
         using var client = app.CreateBrowser();
-        using var login = await TechnicalAuthenticationTests.SignInAsync(client, employee, enrollment.RecoveryCode, true);
+        using var login = await TechnicalAuthenticationTests.SignInAsync(client, employee);
         AssertRedirect(login, "/system-admin");
         using var console = await client.GetAsync("/system-admin", cancellationToken);
         Assert.Equal(HttpStatusCode.OK, console.StatusCode);

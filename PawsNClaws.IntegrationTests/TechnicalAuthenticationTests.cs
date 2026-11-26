@@ -1,7 +1,4 @@
-using System.Buffers.Binary;
-using System.Globalization;
 using System.Net;
-using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using PawsNClaws.Infastructure.Identity.Local;
@@ -10,66 +7,81 @@ namespace PawsNClaws.IntegrationTests;
 
 public sealed class TechnicalAuthenticationTests(LocalAppFactory app) : IClassFixture<LocalAppFactory>
 {
-    [Fact]
-    public async Task Unenrolled_technical_account_cannot_use_either_sign_in()
+    [Theory]
+    [InlineData("/system-admin/login", "/css/technical-login.css")]
+    [InlineData("/Account/Login", "/lib/bootstrap/dist/css/bootstrap.min.css")]
+    public async Task Login_stylesheets_are_available_before_sign_in(string path, string stylesheet)
     {
-        var token = TestContext.Current.CancellationToken;
-        var employee = await app.CreateEmployeeAsync(LocalRoles.SuperAdmin);
         using var client = app.CreateBrowser();
-        using var employeeLogin = await LocalAppFactory.SignInAsync(client, employee);
-        Assert.Equal(HttpStatusCode.OK, employeeLogin.StatusCode);
-        using var technicalLogin = await SignInAsync(client, employee, "123456");
-        Assert.Equal(HttpStatusCode.OK, technicalLogin.StatusCode);
-        using var dashboard = await client.GetAsync("/system-admin", token);
-        Assert.Equal(HttpStatusCode.Redirect, dashboard.StatusCode);
-        Assert.StartsWith("/system-admin/login", dashboard.Headers.Location!.PathAndQuery);
+        var token = TestContext.Current.CancellationToken;
+        using var page = await client.GetAsync(path, token);
+        page.EnsureSuccessStatusCode();
+        var html = await page.Content.ReadAsStringAsync(token);
+        Assert.DoesNotContain("<header", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(stylesheet, html);
+        using var asset = await client.GetAsync(stylesheet, token);
+        Assert.Equal(HttpStatusCode.OK, asset.StatusCode);
+        Assert.Equal("text/css", asset.Content.Headers.ContentType?.MediaType);
     }
 
-    [Fact]
-    public async Task Authenticator_code_is_required_and_cannot_be_replayed()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Superadmin_can_sign_in_with_password_only(bool previouslyEnrolled)
     {
-        var token = TestContext.Current.CancellationToken;
         var employee = await app.CreateEmployeeAsync(LocalRoles.SuperAdmin);
-        var enrollment = await EnrollAsync(app, employee);
-        using var first = app.CreateBrowser();
-        using var bad = await SignInAsync(first, employee, "invalid");
-        Assert.Equal(HttpStatusCode.OK, bad.StatusCode);
+        if (previouslyEnrolled)
+        {
+            await using var scope = app.Services.CreateAsyncScope();
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<LocalApplicationUser>>();
+            var account = await users.FindByIdAsync(employee.Id.ToString());
+            Assert.NotNull(account);
+            TestEmployee.AssertSucceeded(await users.ResetAuthenticatorKeyAsync(account));
+            TestEmployee.AssertSucceeded(await users.SetTwoFactorEnabledAsync(account, true));
+        }
 
-        var code = CalculateCode(enrollment.Key);
-        using var accepted = await SignInAsync(first, employee, code);
-        Assert.Equal(HttpStatusCode.Redirect, accepted.StatusCode);
-        var cookie = Assert.Single(accepted.Headers.GetValues("Set-Cookie"),
+        using var client = app.CreateBrowser();
+        using var response = await SignInAsync(client, employee);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"),
             header => header.StartsWith("__Host-PawsNClaws.Technical=", StringComparison.Ordinal));
         Assert.Contains("secure", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("PawsNClaws.Local.Auth=", cookie, StringComparison.Ordinal);
-        using var dashboard = await first.GetAsync("/system-admin", token);
+        using var dashboard = await client.GetAsync("/system-admin", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, dashboard.StatusCode);
+    }
 
-        using var second = app.CreateBrowser();
-        using var replay = await SignInAsync(second, employee, code);
-        Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+    [Theory]
+    [InlineData(LocalRoles.Admin, true)]
+    [InlineData(LocalRoles.SuperAdmin, false)]
+    public async Task Ineligible_accounts_cannot_sign_in(string role, bool active)
+    {
+        var employee = await app.CreateEmployeeAsync(role, active);
+        using var client = app.CreateBrowser();
+        using var login = await SignInAsync(client, employee);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        using var dashboard = await client.GetAsync("/system-admin", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Redirect, dashboard.StatusCode);
     }
 
     [Fact]
-    public async Task Repeated_second_factor_failures_trigger_identity_lockout()
+    public async Task Repeated_wrong_passwords_trigger_identity_lockout()
     {
         var employee = await app.CreateEmployeeAsync(LocalRoles.SuperAdmin);
-        var enrollment = await EnrollAsync(app, employee);
         using var client = app.CreateBrowser();
         await using var scope = app.Services.CreateAsyncScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<LocalApplicationUser>>();
 
         for (var attempt = 0; attempt < users.Options.Lockout.MaxFailedAccessAttempts; attempt++)
         {
-            using var response = await SignInAsync(client, employee, "invalid");
+            using var response = await SignInAsync(client, employee with { Password = "invalid" });
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
         var user = await users.FindByIdAsync(employee.Id.ToString());
         Assert.NotNull(user);
         Assert.True(await users.IsLockedOutAsync(user));
-        using var rejected = await SignInAsync(client, employee, CalculateCode(enrollment.Key));
+        using var rejected = await SignInAsync(client, employee);
         Assert.Equal(HttpStatusCode.OK, rejected.StatusCode);
     }
 
@@ -78,9 +90,8 @@ public sealed class TechnicalAuthenticationTests(LocalAppFactory app) : IClassFi
     {
         var token = TestContext.Current.CancellationToken;
         var employee = await app.CreateEmployeeAsync(LocalRoles.SuperAdmin);
-        var enrollment = await EnrollAsync(app, employee);
         using var original = app.CreateBrowser();
-        using var signedIn = await SignInAsync(original, employee, CalculateCode(enrollment.Key));
+        using var signedIn = await SignInAsync(original, employee);
         Assert.Equal(HttpStatusCode.Redirect, signedIn.StatusCode);
 
         var newPassword = TestEmployee.GeneratePassword();
@@ -96,97 +107,41 @@ public sealed class TechnicalAuthenticationTests(LocalAppFactory app) : IClassFi
         using var revoked = await original.GetAsync("/system-admin", token);
         Assert.Equal(HttpStatusCode.Redirect, revoked.StatusCode);
         using var client = app.CreateBrowser();
-        using var rejected = await SignInAsync(client, employee, enrollment.RecoveryCode, true);
+        using var rejected = await SignInAsync(client, employee);
         Assert.Equal(HttpStatusCode.OK, rejected.StatusCode);
-        using var accepted = await SignInAsync(client, employee with { Password = newPassword },
-            enrollment.RecoveryCode, true);
+        using var accepted = await SignInAsync(client, employee with { Password = newPassword });
         Assert.Equal(HttpStatusCode.Redirect, accepted.StatusCode);
     }
 
     [Fact]
-    public async Task Recovery_code_is_single_use_and_revokes_existing_technical_sessions()
+    public async Task Logout_ends_the_technical_session()
     {
         var token = TestContext.Current.CancellationToken;
         var employee = await app.CreateEmployeeAsync(LocalRoles.SuperAdmin);
-        var enrollment = await EnrollAsync(app, employee);
-        using var original = app.CreateBrowser();
-        using var originalLogin = await SignInAsync(original, employee, CalculateCode(enrollment.Key));
-        Assert.Equal(HttpStatusCode.Redirect, originalLogin.StatusCode);
-        using var recovered = app.CreateBrowser();
-        using var recovery = await SignInAsync(recovered, employee, enrollment.RecoveryCode, true);
-        Assert.Equal(HttpStatusCode.Redirect, recovery.StatusCode);
-
-        using var revoked = await original.GetAsync("/system-admin", token);
-        Assert.Equal(HttpStatusCode.Redirect, revoked.StatusCode);
-        using var active = await recovered.GetAsync("/system-admin", token);
-        Assert.Equal(HttpStatusCode.OK, active.StatusCode);
-        using var replayClient = app.CreateBrowser();
-        using var replay = await SignInAsync(replayClient, employee, enrollment.RecoveryCode, true);
-        Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
-
-        var antiforgery = await LocalAppFactory.GetAntiforgeryTokenAsync(recovered, "/system-admin");
+        using var client = app.CreateBrowser();
+        using var login = await SignInAsync(client, employee);
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+        var antiforgery = await LocalAppFactory.GetAntiforgeryTokenAsync(client, "/system-admin");
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["__RequestVerificationToken"] = antiforgery
         });
-        using var logout = await recovered.PostAsync("/system-admin/logout", form, token);
+        using var logout = await client.PostAsync("/system-admin/logout", form, token);
         Assert.Equal(HttpStatusCode.Redirect, logout.StatusCode);
-        using var afterLogout = await recovered.GetAsync("/system-admin", token);
+        using var afterLogout = await client.GetAsync("/system-admin", token);
         Assert.Equal(HttpStatusCode.Redirect, afterLogout.StatusCode);
     }
 
-    internal static async Task<(string Key, string RecoveryCode)> EnrollAsync(LocalAppFactory app, TestEmployee employee)
-    {
-        await using var scope = app.Services.CreateAsyncScope();
-        var users = scope.ServiceProvider.GetRequiredService<UserManager<LocalApplicationUser>>();
-        var user = await users.FindByIdAsync(employee.Id.ToString());
-        Assert.NotNull(user);
-        TestEmployee.AssertSucceeded(await users.ResetAuthenticatorKeyAsync(user));
-        TestEmployee.AssertSucceeded(await users.SetTwoFactorEnabledAsync(user, true));
-        var key = await users.GetAuthenticatorKeyAsync(user);
-        Assert.NotNull(key);
-        var recoveryCodes = await users.GenerateNewTwoFactorRecoveryCodesAsync(user, 1);
-        Assert.NotNull(recoveryCodes);
-        return (key, Assert.Single(recoveryCodes));
-    }
-
     internal static async Task<HttpResponseMessage> SignInAsync(
-        HttpClient client, TestEmployee employee, string code, bool useRecoveryCode = false)
+        HttpClient client, TestEmployee employee)
     {
         const string path = "/system-admin/login";
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["Email"] = employee.Email,
             ["Password"] = employee.Password,
-            ["Code"] = code,
-            ["UseRecoveryCode"] = useRecoveryCode.ToString(),
             ["__RequestVerificationToken"] = await LocalAppFactory.GetAntiforgeryTokenAsync(client, path)
         });
         return await client.PostAsync(path, form, TestContext.Current.CancellationToken);
-    }
-
-    private static string CalculateCode(string key)
-    {
-        const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-        var bytes = new List<byte>();
-        var buffer = 0;
-        var bits = 0;
-        foreach (var character in key.TrimEnd('='))
-        {
-            buffer = (buffer << 5) | alphabet.IndexOf(char.ToUpperInvariant(character));
-            bits += 5;
-            if (bits >= 8)
-            {
-                bits -= 8;
-                bytes.Add((byte)(buffer >> bits));
-            }
-        }
-
-        Span<byte> counter = stackalloc byte[8];
-        BinaryPrimitives.WriteInt64BigEndian(counter, DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30);
-        var hash = HMACSHA1.HashData(bytes.ToArray(), counter);
-        var offset = hash[^1] & 0xf;
-        var value = BinaryPrimitives.ReadUInt32BigEndian(hash.AsSpan(offset)) & 0x7fffffff;
-        return (value % 1000000).ToString("D6", CultureInfo.InvariantCulture);
     }
 }

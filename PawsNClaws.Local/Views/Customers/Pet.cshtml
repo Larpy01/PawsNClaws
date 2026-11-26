@@ -1,0 +1,105 @@
+@model PawsNClaws.Application.Features.Customers.PetForm
+@{
+    var heading = Model.Version == Guid.Empty ? "Add pet" : "Edit pet";
+    ViewData["Title"] = heading;
+    var sizes = PetOptions.Sizes;
+    string[] vaccinationStatuses = ["Unvaccinated", "Partially vaccinated", "Fully vaccinated"];
+}
+<h1>@heading</h1>
+<p>Owner: @ViewData["Owner"]</p>
+<form method="post" class="col-lg-7">
+    @Html.AntiForgeryToken()
+    <input asp-for="Version" type="hidden" />
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" maxlength="100" required />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Species" class="form-label"></label>
+        <input asp-for="Species" class="form-control" maxlength="80" list="pet-species" autocomplete="off" required />
+        <datalist id="pet-species">
+            <option value="Cat" data-breeds="cat-breeds"></option>
+            <option value="Dog" data-breeds="dog-breeds"></option>
+        </datalist>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Breed" class="form-label"></label>
+        <input asp-for="Breed" class="form-control" maxlength="100" autocomplete="off" aria-describedby="breed-help" />
+        <div id="breed-help" class="form-text">Choose a species to search its breeds, or type an unlisted breed.</div>
+        <datalist id="cat-breeds">
+            @foreach (var breed in PetOptions.BreedsBySpecies["Cat"])
+            {
+                <option value="@breed"></option>
+            }
+        </datalist>
+        <datalist id="dog-breeds">
+            @foreach (var breed in PetOptions.BreedsBySpecies["Dog"])
+            {
+                <option value="@breed"></option>
+            }
+        </datalist>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Sex" class="form-label"></label>
+        <input asp-for="Sex" class="form-control" maxlength="30" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="DateOfBirth" class="form-label"></label>
+        <input asp-for="DateOfBirth" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Size" class="form-label"></label>
+        <select asp-for="Size" class="form-select">
+            <option value="">Unknown</option>
+            @foreach (var size in sizes)
+            {
+                <option value="@size">@size</option>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.Size) && !sizes.Contains(Model.Size, StringComparer.OrdinalIgnoreCase))
+            {
+                <option value="@Model.Size">@Model.Size</option>
+            }
+        </select>
+    </div>
+    <div class="mb-3">
+        <label asp-for="WeightKg" class="form-label"></label>
+        <input asp-for="WeightKg" class="form-control" type="number" min="0.001" step="0.001" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="VaccinationStatus" class="form-label"></label>
+        <select asp-for="VaccinationStatus" class="form-select">
+            <option value="">Unknown</option>
+            @foreach (var status in vaccinationStatuses)
+            {
+                <option value="@status">@status</option>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.VaccinationStatus) &&
+                !vaccinationStatuses.Contains(Model.VaccinationStatus, StringComparer.OrdinalIgnoreCase))
+            {
+                <option value="@Model.VaccinationStatus">@Model.VaccinationStatus</option>
+            }
+        </select>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Allergies" class="form-label"></label>
+        <textarea asp-for="Allergies" class="form-control" maxlength="500"></textarea>
+    </div>
+    <div class="mb-3">
+        <label asp-for="MedicalNotes" class="form-label"></label>
+        <textarea asp-for="MedicalNotes" class="form-control" maxlength="1000"></textarea>
+    </div>
+    <div class="mb-3">
+        <label asp-for="BehaviorNotes" class="form-label"></label>
+        <textarea asp-for="BehaviorNotes" class="form-control" maxlength="1000"></textarea>
+    </div>
+    <div class="mb-3">
+        <label asp-for="SpecialInstructions" class="form-label"></label>
+        <textarea asp-for="SpecialInstructions" class="form-control" maxlength="1000"></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Save pet</button>
+</form>
+
+@section Scripts {
+    <script src="~/js/pet-breeds.js" asp-append-version="true"></script>
+}

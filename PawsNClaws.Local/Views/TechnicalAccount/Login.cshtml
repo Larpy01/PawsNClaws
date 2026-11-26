@@ -1,29 +1,27 @@
 @model PawsNClaws.Local.Models.Authentication.TechnicalLoginModel
 @{
-    ViewData["Title"] = "System Administration Sign-in";
+    Layout = null;
 }
-
-<main class="container py-4">
-    <h1>System Administration Sign-in</h1>
-    <form asp-controller="TechnicalAccount" asp-action="Login" method="post">
-        <div asp-validation-summary="All" class="text-danger"></div>
-        <div class="mb-3">
-            <label asp-for="Email" class="form-label"></label>
-            <input asp-for="Email" class="form-control" autocomplete="username" required />
-        </div>
-        <div class="mb-3">
-            <label asp-for="Password" class="form-label"></label>
-            <input asp-for="Password" class="form-control" autocomplete="current-password" required />
-        </div>
-        <div class="mb-3">
-            <label asp-for="Code" class="form-label"></label>
-            <input asp-for="Code" type="password" class="form-control" autocomplete="one-time-code" required />
-        </div>
-        <div class="form-check mb-3">
-            <input asp-for="UseRecoveryCode" class="form-check-input" />
-            <label asp-for="UseRecoveryCode" class="form-check-label"></label>
-        </div>
-        <button type="submit" class="btn btn-primary">Sign in</button>
-        <a asp-controller="Account" asp-action="Login" class="btn btn-link">Employee sign-in</a>
-    </form>
-</main>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SuperAdmin sign-in | Paws N' Claws</title>
+    <link rel="stylesheet" href="~/css/technical-login.css" asp-append-version="true" />
+</head>
+<body>
+    <main>
+        <h1>SuperAdmin sign-in</h1>
+        <form asp-controller="TechnicalAccount" asp-action="Login" method="post">
+            <div asp-validation-summary="All" class="errors" role="alert"></div>
+            <label asp-for="Email">Email address</label>
+            <input asp-for="Email" autocomplete="username" required />
+            <label asp-for="Password"></label>
+            <input asp-for="Password" autocomplete="current-password" required />
+            <button type="submit">Sign in</button>
+        </form>
+        <footer><a asp-controller="Account" asp-action="Login">Employee sign-in</a></footer>
+    </main>
+</body>
+</html>

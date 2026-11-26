@@ -1,4 +1,4 @@
-﻿
+
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +22,7 @@ public class LocalDbContext
     => Set<EmployeeAuditLog>();
 
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<GroomingService> GroomingServices => Set<GroomingService>();
 
     public DbSet<InventoryStock> InventoryStocks
         => Set<InventoryStock>();
@@ -32,10 +33,29 @@ public class LocalDbContext
     public DbSet<InventoryMovementEvidence> InventoryMovementEvidence
         => Set<InventoryMovementEvidence>();
 
+    public DbSet<StockOutRequest> StockOutRequests => Set<StockOutRequest>();
+    public DbSet<StockOutRequestEvidence> StockOutRequestEvidence => Set<StockOutRequestEvidence>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.ApplyConfiguration(new StockOutRequestConfiguration());
+        builder.ApplyConfiguration(new StockOutRequestEvidenceConfiguration());
+        InventoryModelConfiguration.Configure(builder);
+        CustomerRecordsConfiguration.Configure(builder);
+
+        builder.Entity<GroomingService>(entity =>
+        {
+            entity.ToTable("GroomingServices", table => table.HasCheckConstraint(
+                "CK_GroomingServices_Duration",
+                "([DurationMinutes] IS NULL AND [IsActive] = 0) OR ([DurationMinutes] IS NOT NULL AND [DurationMinutes] > 0)"));
+            entity.Property(x => x.Version).IsConcurrencyToken();
+            entity.Property(x => x.Name).HasMaxLength(120);
+            entity.Property(x => x.Description).HasMaxLength(500);
+            entity.Property(x => x.Species).HasMaxLength(80);
+            entity.Property(x => x.Breed).HasMaxLength(100);
+            entity.Property(x => x.Size).HasMaxLength(60);
+        });
 
         builder.Entity<Product>(entity =>
         {
@@ -137,6 +157,10 @@ public class LocalDbContext
             entity.ToTable("InventoryMovements", table =>
             {
                 table.HasCheckConstraint(
+                    "CK_InventoryMovements_StockOutRequest",
+                    "[StockOutRequestId] IS NULL OR [MovementType] = 'StockOut'");
+
+                table.HasCheckConstraint(
                     "CK_InventoryMovements_QuantityChange",
                     "[QuantityChange] <> 0");
 
@@ -150,20 +174,19 @@ public class LocalDbContext
 
                 table.HasCheckConstraint(
                     "CK_InventoryMovements_QuantityBalance",
-                    "CAST([QuantityAfter] AS bigint) = " +
-                    "CAST([QuantityBefore] AS bigint) + [QuantityChange]");
+                    "[QuantityAfter] = [QuantityBefore] + [QuantityChange]");
 
                 table.HasCheckConstraint(
                     "CK_InventoryMovements_MovementType",
                     "[MovementType] IN " +
                     "('StockIn', 'StockOut', 'Adjustment', " +
-                    "'Sale', 'SaleReversal')");
+                    "'Sale', 'SaleReversal', 'GroomingUsage', 'GroomingUsageCorrection')");
 
                 table.HasCheckConstraint(
                     "CK_InventoryMovements_Direction",
-                    "([MovementType] IN ('StockIn', 'SaleReversal') " +
+                    "([MovementType] IN ('StockIn', 'SaleReversal', 'GroomingUsageCorrection') " +
                     "AND [QuantityChange] > 0) OR " +
-                    "([MovementType] IN ('StockOut', 'Sale') " +
+                    "([MovementType] IN ('StockOut', 'Sale', 'GroomingUsage') " +
                     "AND [QuantityChange] < 0) OR " +
                     "([MovementType] = 'Adjustment')");
 
@@ -221,6 +244,15 @@ public class LocalDbContext
             });
 
             entity.HasIndex(x => x.PerformedByUserId);
+            entity.HasIndex(x => new { x.StockOutRequestId, x.ProductId })
+                .IsUnique()
+                .HasFilter("[StockOutRequestId] IS NOT NULL")
+                .HasDatabaseName("UX_InventoryMovements_StockOutRequestId");
+            entity.HasOne(x => x.StockOutRequest)
+                .WithOne(x => x.Movement)
+                .HasForeignKey<InventoryMovement>(x => new { x.StockOutRequestId, x.ProductId })
+                .HasPrincipalKey<StockOutRequest>(x => new { x.Id, x.ProductId })
+                .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(x => x.Product)
                 .WithMany()

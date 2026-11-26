@@ -1,0 +1,22 @@
+@model PawsNClaws.Local.Models.Inventory.CatalogForm
+@{
+    ViewData["Title"] = "Product inventory settings";
+}
+<h1>Product inventory settings</h1>
+<form asp-action="Catalog" method="post" class="row g-3">
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <input asp-for="ProductId" type="hidden" />
+    <div class="col-md-4"><label asp-for="Unit" class="form-label">Base unit</label><select asp-for="Unit" class="form-select"><option>Each</option><option>mL</option><option>g</option></select></div>
+    <div class="col-md-4"><label asp-for="Category" class="form-label"></label><input asp-for="Category" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="Barcode" class="form-label"></label><input asp-for="Barcode" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="UnitCost" class="form-label">Cost per base unit (₱)</label><input asp-for="UnitCost" type="number" min="0" step="0.01" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="ReorderLevel" class="form-label">Reorder level</label><input asp-for="ReorderLevel" type="number" min="0" step="0.001" class="form-control" /></div>
+    <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control"></textarea></div>
+    <div class="col-12">
+        <label class="form-check"><input asp-for="Sellable" class="form-check-input" /> Sold by whole item</label>
+        <label class="form-check"><input asp-for="Consumable" class="form-check-input" /> Used in grooming</label>
+        <label class="form-check"><input asp-for="TracksExpiry" class="form-check-input" /> Require lot and expiry at receiving</label>
+        <label class="form-check"><input asp-for="Online" class="form-check-input" /> Eligible for the online catalog</label>
+    </div>
+    <div class="col-12"><button type="submit" class="btn btn-primary">Save settings</button> <a asp-action="Index" class="btn btn-link">Back to inventory</a></div>
+</form>

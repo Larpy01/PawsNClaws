@@ -1,4 +1,4 @@
-﻿
+
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 
@@ -21,10 +21,17 @@ public static class LocalRoleSeeder
 
             [LocalRoles.Manager] =
             [
+                Permissions.GroomingCatalogManage,
+                Permissions.CustomerRecordsManage,
                 Permissions.DashboardView,
                 Permissions.ProductsView,
+                Permissions.ProductsCreate,
                 Permissions.InventoryView,
                 Permissions.InventoryAdjust,
+                Permissions.InventoryReceive,
+                Permissions.InventorySubmit,
+                Permissions.InventoryReview,
+                Permissions.InventoryUse,
                 Permissions.PosAccess,
                 Permissions.PosCreateSale,
                 Permissions.PosVoidSale,
@@ -33,25 +40,25 @@ public static class LocalRoleSeeder
 
             [LocalRoles.Cashier] =
             [
+                Permissions.CustomerRecordsManage,
                 Permissions.DashboardView,
-                Permissions.ProductsView,
                 Permissions.PosAccess,
                 Permissions.PosCreateSale
             ],
 
             [LocalRoles.Groomer] =
             [
-                Permissions.DashboardView
+                Permissions.DashboardView,
+                Permissions.InventoryView,
+                Permissions.InventoryUse
             ],
 
             [LocalRoles.InventoryStaff] =
             [
                 Permissions.DashboardView,
-                Permissions.ProductsView,
-                Permissions.ProductsCreate,
-                Permissions.ProductsUpdate,
                 Permissions.InventoryView,
-                Permissions.InventoryAdjust
+                Permissions.InventoryReceive,
+                Permissions.InventorySubmit
             ]
         };
 
@@ -70,12 +77,15 @@ public static class LocalRoleSeeder
             var existingClaims =
                 await roleManager.GetClaimsAsync(role);
 
-            if (roleName == LocalRoles.SuperAdmin)
+            if (roleName is LocalRoles.SuperAdmin or LocalRoles.InventoryStaff or LocalRoles.Cashier or LocalRoles.Groomer)
             {
                 var obsoletePermissions = existingClaims
                     .Where(claim =>
                         string.Equals(claim.Type, PermissionClaimType, StringComparison.OrdinalIgnoreCase) &&
-                        !permissions.Contains(claim.Value))
+                        (roleName == LocalRoles.SuperAdmin
+                            ? !permissions.Contains(claim.Value)
+                            : claim.Value is Permissions.ProductsView or Permissions.ProductsCreate or Permissions.ProductsUpdate
+                                || (roleName == LocalRoles.InventoryStaff && claim.Value == Permissions.InventoryAdjust)))
                     .DistinctBy(claim => (claim.Type, claim.Value))
                     .ToArray();
 

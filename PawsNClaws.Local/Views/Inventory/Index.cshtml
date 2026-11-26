@@ -1,0 +1,285 @@
+@model PawsNClaws.Application.Features.Inventory.InventoryOverview
+@using PawsNClaws.Application.Features.Inventory
+@using PawsNClaws.Domain.Enums
+@using PawsNClaws.Infastructure.Features.Inventory
+@using PawsNClaws.Infastructure.Identity.Local
+@{
+    ViewData["Title"] = "Inventory";
+    var management = InventoryAccess.IsManagement(User);
+    var canAdjust = management && InventoryAccess.Has(User, Permissions.InventoryAdjust);
+    var canReview = management && InventoryAccess.Has(User, Permissions.InventoryReview);
+    var canSubmit = InventoryAccess.Has(User, Permissions.InventorySubmit);
+    var canReceive = InventoryAccess.Has(User, Permissions.InventoryReceive);
+    var canUse = InventoryAccess.Has(User, Permissions.InventoryUse);
+    var actorId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    var products = Model.Stock.ToDictionary(product => product.ProductId);
+    int Page(string key) => int.TryParse(Context.Request.Query[key], out var page) ? Math.Clamp(page, 1, 10000) : 1;
+}
+<h1>Inventory</h1>
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success" role="status">@success</div>
+}
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger" role="alert">@error</div>
+}
+
+<section class="my-4" aria-labelledby="stock-heading">
+    <h2 id="stock-heading">Stock balances</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>SKU</th><th>Product</th><th>Unit</th><th>On hand</th><th>Usable</th><th>Quarantined</th><th>Reorder level</th>@if (canAdjust) { <th>Settings</th> }</tr></thead>
+            <tbody>
+            @foreach (var row in Model.Stock)
+            {
+                <tr>
+                    <td>@row.Sku</td><td>@row.Name</td><td>@row.Unit</td>
+                    <td>@row.OnHand.ToString("0.###")</td><td>@row.Usable.ToString("0.###")</td>
+                    <td>@row.Quarantined.ToString("0.###")</td><td>@row.ReorderLevel.ToString("0.###")</td>
+                    @if (canAdjust)
+                    {
+                        <td><a asp-action="Catalog" asp-route-id="@row.ProductId">Edit inventory settings</a></td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<details class="border rounded p-3 mb-3">
+    <summary class="fw-semibold">Batch balances</summary>
+    <div class="table-responsive mt-2">
+        <table class="table table-sm">
+            <thead><tr><th>SKU</th><th>Lot</th><th>Expiry</th><th>On hand</th><th>Quarantined</th></tr></thead>
+            <tbody>
+                @foreach (var batch in Model.Batches)
+                {
+                    <tr><td>@products[batch.ProductId].Sku</td><td>@(batch.Lot ?? "—")</td><td>@(batch.Expiry?.ToString("yyyy-MM-dd") ?? "—")</td><td>@batch.OnHand.ToString("0.###")</td><td>@batch.Quarantined.ToString("0.###")</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</details>
+
+@if (canReceive && Model.Stock.Count > 0)
+{
+    <details class="border rounded p-3 mb-3">
+        <summary class="fw-semibold">Receive stock</summary>
+        <form class="row g-3 mt-1" asp-action="Receive" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="OperationId" value="@Guid.NewGuid()" />
+            <div class="col-md-4"><label class="form-label" for="receipt-product">Product</label>
+                <select id="receipt-product" name="ProductId" class="form-select" required>
+                    @foreach (var row in Model.Stock) { <option value="@row.ProductId">@row.Sku · @row.Name (@row.Unit)</option> }
+                </select>
+            </div>
+            <div class="col-md-4"><label class="form-label" for="supplier">Supplier</label><input class="form-control" id="supplier" name="Supplier" maxlength="150" required /></div>
+            <div class="col-md-4"><label class="form-label" for="receipt-ref">Supplier reference</label><input class="form-control" id="receipt-ref" name="Reference" maxlength="100" /></div>
+            <div class="col-md-4">
+                <label class="form-label" for="lot">Lot / batch number</label>
+                <input class="form-control" id="lot" name="Lot" maxlength="100" aria-describedby="lot-help" />
+                <div id="lot-help" class="form-text">Copy the batch code printed on the packaging. Required for products that track expiry.</div>
+            </div>
+            <div class="col-md-4"><label class="form-label" for="expiry">Expiry</label><input class="form-control" id="expiry" name="ExpiryDate" type="date" /></div>
+            <div class="col-md-4"><label class="form-label" for="receiving-unit">Input unit</label>
+                <select class="form-select" id="receiving-unit" name="InputUnit"><option value="">Product base unit</option><option value="L">L (for mL)</option><option value="kg">kg (for g)</option></select>
+            </div>
+            <div class="col-md-3"><label class="form-label" for="delivered">Delivered</label><input class="form-control" id="delivered" name="Delivered" type="number" min="0" step="any" required /></div>
+            <div class="col-md-3"><label class="form-label" for="accepted">Accepted</label><input class="form-control" id="accepted" name="Accepted" type="number" min="0" step="any" required /></div>
+            <div class="col-md-3"><label class="form-label" for="rejected">Rejected</label><input class="form-control" id="rejected" name="Rejected" type="number" min="0" step="any" value="0" required /></div>
+            <div class="col-md-3"><label class="form-label" for="cost">Cost per base unit (₱)</label><input class="form-control" id="cost" name="UnitCost" type="number" min="0" step="0.01" /></div>
+            <div class="col-md-6"><label class="form-label" for="rejection-reason">Reason for rejected items</label><textarea class="form-control" id="rejection-reason" name="RejectionReason" maxlength="500"></textarea></div>
+            <div class="col-md-6"><label class="form-label" for="receipt-photos">Photos of rejected items</label><input class="form-control" id="receipt-photos" name="Photos" type="file" accept="image/jpeg,image/png" multiple /></div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Record receipt</button></div>
+        </form>
+    </details>
+}
+
+@if ((canSubmit || canReview || canAdjust || canUse) && Model.Stock.Count > 0)
+{
+    <details class="border rounded p-3 mb-4">
+        <summary class="fw-semibold">Record a stock operation</summary>
+        <form class="row g-3 mt-1" asp-action="Post" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="OperationId" value="@Guid.NewGuid()" />
+            <div class="col-md-4"><label class="form-label" for="operation-action">Operation</label>
+                <select class="form-select" id="operation-action" name="Action" required>
+                    @if (canSubmit) { <option value="Submit">Request disposal</option> }
+                    @if (canReview) { <option value="Dispose">Execute disposal directly</option> }
+                    @if (canUse)
+                    {
+                        <option value="EstimateUsage">Estimate grooming usage</option>
+                        <option value="Use">Record grooming usage without an estimate</option>
+                    }
+                    @if (canAdjust)
+                    {
+                        <option value="Quarantine">Quarantine stock</option>
+                        <option value="Release">Release quarantine</option>
+                        <option value="Adjust">Adjust stock</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4"><label class="form-label" for="operation-product">Product</label>
+                <select id="operation-product" name="ProductId" class="form-select" required>
+                    @foreach (var row in Model.Stock) { <option value="@row.ProductId">@row.Sku · @row.Name (@row.Unit)</option> }
+                </select>
+            </div>
+            <div class="col-md-4"><label class="form-label" for="operation-batch">Batch (for disposal, adjustment, or quarantine)</label>
+                <select id="operation-batch" name="BatchId" class="form-select">
+                    <option value="">Select a batch</option>
+                    @foreach (var batch in Model.Batches)
+                    {
+                        <option value="@batch.Id" data-product="@batch.ProductId">@products[batch.ProductId].Sku · @(batch.Lot ?? "No lot") · @(batch.Expiry?.ToString("yyyy-MM-dd") ?? "No expiry") · @batch.OnHand.ToString("0.###") on hand</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4"><label class="form-label" for="movement-quantity">Quantity</label><input class="form-control" id="movement-quantity" name="Quantity" type="number" step="any" required /></div>
+            <div class="col-md-4"><label class="form-label" for="movement-unit">Input unit</label>
+                <select class="form-select" id="movement-unit" name="InputUnit"><option value="">Product base unit</option><option value="L">L (for mL)</option><option value="kg">kg (for g)</option></select>
+            </div>
+            <div class="col-md-4"><label class="form-label" for="disposal-category">Disposal reason category</label>
+                <select class="form-select" id="disposal-category" name="Category"><option value="">Select a category</option>
+                    @foreach (var category in Enum.GetValues<StockOutReason>()) { <option value="@category">@category</option> }
+                </select>
+            </div>
+            <div class="col-md-6"><label class="form-label" for="movement-reason">Reason or grooming job reference</label><textarea class="form-control" id="movement-reason" name="Reason" maxlength="500" required></textarea></div>
+            <div class="col-md-6"><label class="form-label" for="movement-photos">Photos for disposal or negative adjustment</label><input class="form-control" id="movement-photos" name="Photos" type="file" accept="image/jpeg,image/png" multiple /></div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Record operation</button></div>
+        </form>
+    </details>
+}
+
+@if (canUse)
+{
+    <section class="my-4" aria-labelledby="estimates-heading">
+        <h2 id="estimates-heading">Grooming usage estimates</h2>
+        @foreach (var estimate in Model.UsageEstimates)
+        {
+            <article class="border rounded p-3 mb-2">
+                <h3 class="h5">@estimate.JobReference · @estimate.Product</h3>
+                <p>Estimated @estimate.Quantity.ToString("0.###") @estimate.Unit</p>
+                @if (estimate.Posted)
+                {
+                    <p class="mb-0">Actual usage posted</p>
+                }
+                else
+                {
+                    <form asp-action="Post" method="post" class="row g-2">
+                        <input type="hidden" name="OperationId" value="@Guid.NewGuid()" />
+                        <input type="hidden" name="Action" value="Use" />
+                        <input type="hidden" name="ProductId" value="@estimate.ProductId" />
+                        <input type="hidden" name="MovementId" value="@estimate.Id" />
+                        <div class="col-md-4"><label for="actual-@estimate.Id" class="form-label">Actual quantity (@estimate.Unit)</label><input id="actual-@estimate.Id" name="Quantity" type="number" step="any" min="0" class="form-control" required /></div>
+                        <div class="col-md-6"><label for="usage-note-@estimate.Id" class="form-label">Usage note</label><input id="usage-note-@estimate.Id" name="Reason" maxlength="380" class="form-control" required /></div>
+                        <div class="col-md-2 align-self-end"><button class="btn btn-primary" type="submit">Post actual usage</button></div>
+                    </form>
+                }
+            </article>
+        }
+    </section>
+}
+
+<section class="my-4" aria-labelledby="dispose-heading">
+    <h2 id="dispose-heading">Stock Out requests</h2>
+    @if (Model.Requests.Count == 0) { <p>No requests on this page.</p> }
+    @foreach (var request in Model.Requests)
+    {
+        <article class="border rounded p-3 mb-2">
+            <h3 class="h5">@request.Product · @request.Quantity.ToString("0.###")</h3>
+            <p class="mb-1">@request.Status · @request.ReasonCategory · @request.SubmittedAtUtc.ToLocalTime().ToString("g")</p>
+            <p class="mb-1">@request.Reason</p>
+            @if (request.Decision is not null) { <p class="mb-1">@request.Decision</p> }
+            @foreach (var photo in request.Evidence) { <a class="me-2" asp-action="Evidence" asp-route-source="@photo.Source" asp-route-id="@photo.Id">Download photo</a> }
+            @if (request.Status == StockOutRequestStatus.Pending)
+            {
+                if (canSubmit && request.SubmittedBy.ToString() == actorId)
+                {
+                    <form asp-action="Post" method="post" class="mt-2">
+                        <input type="hidden" name="OperationId" value="@Guid.NewGuid()" />
+                        <input type="hidden" name="RequestId" value="@request.Id" />
+                        <button class="btn btn-sm btn-outline-secondary" type="submit" name="Action" value="Cancel">Cancel request</button>
+                    </form>
+                }
+                else if (canReview)
+                {
+                    <form asp-action="Post" method="post" class="mt-2">
+                        <input type="hidden" name="OperationId" value="@Guid.NewGuid()" />
+                        <input type="hidden" name="RequestId" value="@request.Id" />
+                        <label class="form-label" for="decision-@request.Id">Decision comment (required to reject)</label>
+                        <input class="form-control mb-2" id="decision-@request.Id" name="Reason" maxlength="500" />
+                        <button class="btn btn-sm btn-primary" type="submit" name="Action" value="Approve">Approve disposal</button>
+                        <button class="btn btn-sm btn-outline-danger" type="submit" name="Action" value="Reject">Reject</button>
+                    </form>
+                }
+            }
+        </article>
+    }
+    @if (Page("requestPage") > 1) { <a asp-route-requestPage="@(Page("requestPage") - 1)" asp-route-movementPage="@Page("movementPage")" asp-route-receiptPage="@Page("receiptPage")">Newer requests</a> }
+    @if (Model.Requests.Count == 25) { <a class="ms-2" asp-route-requestPage="@(Page("requestPage") + 1)" asp-route-movementPage="@Page("movementPage")" asp-route-receiptPage="@Page("receiptPage")">Older requests</a> }
+</section>
+
+<section class="my-4" aria-labelledby="ledger-heading">
+    <h2 id="ledger-heading">Stock ledger</h2>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead><tr><th>Time</th><th>Product</th><th>Movement</th><th>Change</th><th>Balance</th><th>Reason and evidence</th></tr></thead>
+            <tbody>
+                @foreach (var movement in Model.Movements)
+                {
+                    <tr>
+                        <td>@movement.AtUtc.ToLocalTime().ToString("g")</td><td>@movement.Product</td><td>@movement.Type</td>
+                        <td>@movement.Change.ToString("0.###")</td><td>@movement.Balance.ToString("0.###")</td>
+                        <td>@movement.Reason
+                            @if (movement.RequestId is Guid requestId)
+                            {
+                                <a asp-action="RequestDetails" asp-route-id="@requestId">Original request and photos</a>
+                            }
+                            @foreach (var photo in movement.Evidence) { <a class="me-2" asp-action="Evidence" asp-route-source="@photo.Source" asp-route-id="@photo.Id">Download photo</a> }
+                            @if (management && canUse && movement.Type == InventoryMovementType.GroomingUsage)
+                            {
+                                <details class="mt-2">
+                                    <summary>Correct usage</summary>
+                                    <form asp-action="Post" method="post" class="mt-2">
+                                        <input type="hidden" name="OperationId" value="@Guid.NewGuid()" />
+                                        <input type="hidden" name="ProductId" value="@movement.ProductId" />
+                                        <input type="hidden" name="MovementId" value="@movement.Id" />
+                                        <label for="correction-@movement.Id" class="form-label">Correction reason</label>
+                                        <input id="correction-@movement.Id" name="Reason" class="form-control mb-2" required maxlength="500" />
+                                        <button name="Action" value="ReverseUsage" class="btn btn-sm btn-outline-primary" type="submit">Reverse usage</button>
+                                    </form>
+                                </details>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Page("movementPage") > 1) { <a asp-route-movementPage="@(Page("movementPage") - 1)" asp-route-requestPage="@Page("requestPage")" asp-route-receiptPage="@Page("receiptPage")">Newer movements</a> }
+    @if (Model.Movements.Count == 25) { <a class="ms-2" asp-route-movementPage="@(Page("movementPage") + 1)" asp-route-requestPage="@Page("requestPage")" asp-route-receiptPage="@Page("receiptPage")">Older movements</a> }
+</section>
+
+<section class="my-4" aria-labelledby="receipts-heading">
+    <h2 id="receipts-heading">Receiving history</h2>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead><tr><th>Time</th><th>Product</th><th>Supplier</th><th>Delivered</th><th>Accepted</th><th>Rejected</th><th>Evidence</th></tr></thead>
+            <tbody>
+                @foreach (var receipt in Model.Receipts)
+                {
+                    <tr>
+                        <td>@receipt.AtUtc.ToLocalTime().ToString("g")</td><td>@receipt.Product</td><td>@receipt.Supplier @receipt.Reference</td>
+                        <td>@receipt.Delivered.ToString("0.###")</td><td>@receipt.Accepted.ToString("0.###")</td><td>@receipt.Rejected.ToString("0.###")</td>
+                        <td>@foreach (var photo in receipt.Evidence) { <a class="me-2" asp-action="Evidence" asp-route-source="@photo.Source" asp-route-id="@photo.Id">Download photo</a> }</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Page("receiptPage") > 1) { <a asp-route-receiptPage="@(Page("receiptPage") - 1)" asp-route-requestPage="@Page("requestPage")" asp-route-movementPage="@Page("movementPage")">Newer receipts</a> }
+    @if (Model.Receipts.Count == 25) { <a class="ms-2" asp-route-receiptPage="@(Page("receiptPage") + 1)" asp-route-requestPage="@Page("requestPage")" asp-route-movementPage="@Page("movementPage")">Older receipts</a> }
+</section>
+
+@section Scripts {
+    <script src="~/js/inventory.js" asp-append-version="true"></script>
+}
