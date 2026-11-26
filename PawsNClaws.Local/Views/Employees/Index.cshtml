@@ -11,8 +11,7 @@
         <h2>Employee Management</h2>
 
         @if (User.HasClaim("Permission", Permissions.UsersCreate)
-            && (User.IsInRole(LocalRoles.SuperAdmin)
-                || User.IsInRole(LocalRoles.Admin)))
+            && User.IsInRole(LocalRoles.Admin))
         {
             <a asp-action="Create"
                class="btn btn-primary">
@@ -22,8 +21,7 @@
 
         
         @if (User.HasClaim("Permission", Permissions.UsersView)
-            && (User.IsInRole(LocalRoles.SuperAdmin)
-                || User.IsInRole(LocalRoles.Admin)))
+            && User.IsInRole(LocalRoles.Admin))
         {
             <a asp-controller="EmployeeAuditLogs"
                asp-action="Index"
@@ -82,8 +80,7 @@
                         <td>
                             @if (User.HasClaim(
                                     "Permission", Permissions.UsersChangeStatus)
-                                && (User.IsInRole(LocalRoles.SuperAdmin)
-                                    || User.IsInRole(LocalRoles.Admin))
+                                && User.IsInRole(LocalRoles.Admin)
                                 && employee.Id.ToString() !=
                                     User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                                 && !employee.Roles.Contains(LocalRoles.SuperAdmin)
@@ -118,8 +115,7 @@
                         <td>
                             
                             @if (User.HasClaim("Permission", Permissions.UsersAssignRoles)
-                                && (User.IsInRole(LocalRoles.SuperAdmin)
-                                    || User.IsInRole(LocalRoles.Admin))
+                                && User.IsInRole(LocalRoles.Admin)
                                 && employee.Id.ToString() !=
                                     User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                                 && !employee.Roles.Contains(LocalRoles.SuperAdmin)

@@ -13,9 +13,11 @@ public static class LocalRoleSeeder
     {
         var roles = new Dictionary<string, string[]>
         {
-            [LocalRoles.SuperAdmin] = Permissions.All.ToArray(),
+            [LocalRoles.SuperAdmin] = [Permissions.TechnicalDashboardView],
 
-            [LocalRoles.Admin] = Permissions.All.ToArray(),
+            [LocalRoles.Admin] = Permissions.All
+                .Where(permission => permission != Permissions.TechnicalDashboardView)
+                .ToArray(),
 
             [LocalRoles.Manager] =
             [
@@ -67,6 +69,22 @@ public static class LocalRoleSeeder
 
             var existingClaims =
                 await roleManager.GetClaimsAsync(role);
+
+            if (roleName == LocalRoles.SuperAdmin)
+            {
+                var obsoletePermissions = existingClaims
+                    .Where(claim =>
+                        string.Equals(claim.Type, PermissionClaimType, StringComparison.OrdinalIgnoreCase) &&
+                        !permissions.Contains(claim.Value))
+                    .DistinctBy(claim => (claim.Type, claim.Value))
+                    .ToArray();
+
+                foreach (var claim in obsoletePermissions)
+                    EnsureSuccess(await roleManager.RemoveClaimAsync(role, claim));
+
+                if (obsoletePermissions.Length > 0)
+                    existingClaims = await roleManager.GetClaimsAsync(role);
+            }
 
             foreach (var permission in permissions)
             {

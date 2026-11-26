@@ -5,15 +5,27 @@ namespace PawsNClaws.Infastructure.Identity.Local;
 
 public static class LocalIdentitySeeder
 {
-    public static async Task SeedSuperAdminAsync(
+    public static Task SeedSuperAdminAsync(
         UserManager<LocalApplicationUser> userManager,
         RoleManager<IdentityRole<Guid>> roleManager,
         string email,
-        string password)
-    {
-        const string roleName = "SuperAdmin";
+        string password) =>
+        SeedAdministratorAsync(userManager, roleManager, email, password, LocalRoles.SuperAdmin);
 
-        // Ensure the SuperAdmin role exists.
+    public static Task SeedBusinessAdminAsync(
+        UserManager<LocalApplicationUser> userManager,
+        RoleManager<IdentityRole<Guid>> roleManager,
+        string email,
+        string password) =>
+        SeedAdministratorAsync(userManager, roleManager, email, password, LocalRoles.Admin);
+
+    private static async Task SeedAdministratorAsync(
+        UserManager<LocalApplicationUser> userManager,
+        RoleManager<IdentityRole<Guid>> roleManager,
+        string email,
+        string password,
+        string roleName)
+    {
         if (!await roleManager.RoleExistsAsync(roleName))
         {
             var roleResult = await roleManager.CreateAsync(
@@ -34,8 +46,15 @@ public static class LocalIdentitySeeder
 
         if (existingUser is not null)
         {
-            // Never overwrite existing credentials
-            // or automatically elevate existing accounts.
+            if (roleName == LocalRoles.Admin &&
+                (!await userManager.IsInRoleAsync(existingUser, LocalRoles.Admin) ||
+                 await userManager.IsInRoleAsync(existingUser, LocalRoles.SuperAdmin)))
+            {
+                throw new InvalidOperationException(
+                    "Business Admin bootstrap requires an email dedicated to a business administrator.");
+            }
+
+            // Do not overwrite credentials or elevate an existing account.
             return;
         }
 
@@ -44,7 +63,7 @@ public static class LocalIdentitySeeder
             UserName = email,
             Email = email,
             EmailConfirmed = true,
-            FirstName = "System",
+            FirstName = roleName == LocalRoles.Admin ? "Business" : "System",
             LastName = "Administrator",
             IsActive = true
         };
@@ -61,7 +80,6 @@ public static class LocalIdentitySeeder
                         e => e.Description)));
         }
 
-        // Assign the SuperAdmin role.
         var assignResult =
             await userManager.AddToRoleAsync(
                 admin, roleName);

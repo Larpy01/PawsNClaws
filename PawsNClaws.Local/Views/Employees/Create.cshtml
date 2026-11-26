@@ -13,10 +13,6 @@
         LocalRoles.InventoryStaff
     };
 
-    if (User.IsInRole(LocalRoles.SuperAdmin))
-    {
-        roles.Insert(0, LocalRoles.Admin);
-    }
 }
 
 

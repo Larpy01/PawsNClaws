@@ -39,7 +39,7 @@ public sealed class EmployeesController : Controller
 
     [HttpGet]
     [Authorize(Policy = Permissions.UsersCreate)]
-    [Authorize(Roles = LocalRoles.SuperAdmin + "," + LocalRoles.Admin)]
+    [Authorize(Roles = LocalRoles.Admin)]
     public IActionResult Create()
     {
         return View(new CreateEmployeeModel());
@@ -48,7 +48,7 @@ public sealed class EmployeesController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = Permissions.UsersCreate)]
-    [Authorize(Roles = LocalRoles.SuperAdmin + "," + LocalRoles.Admin)]
+    [Authorize(Roles = LocalRoles.Admin)]
     public async Task<IActionResult> Create(
         CreateEmployeeModel model,
         CancellationToken cancellationToken)
@@ -98,8 +98,7 @@ public sealed class EmployeesController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = Permissions.UsersChangeStatus)]
-    [Authorize(Roles =
-        LocalRoles.SuperAdmin + "," + LocalRoles.Admin)]
+    [Authorize(Roles = LocalRoles.Admin)]
     public async Task<IActionResult> SetStatus(
         Guid id,
         bool isActive,
@@ -136,7 +135,7 @@ public sealed class EmployeesController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = Permissions.UsersAssignRoles)]
-    [Authorize(Roles = LocalRoles.SuperAdmin + "," + LocalRoles.Admin)]
+    [Authorize(Roles = LocalRoles.Admin)]
     public async Task<IActionResult> ChangeRole(
         Guid id,
         string newRole,

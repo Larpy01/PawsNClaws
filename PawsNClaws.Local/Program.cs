@@ -9,8 +9,11 @@ using PawsNClaws.Application.Features.Products.Interfaces;
 using PawsNClaws.Infastructure.Features.Products;
 using PawsNClaws.Infastructure.Identity.Local;
 using PawsNClaws.Infastructure.Persistence.Local;
+using PawsNClaws.Local;
+using PawsNClaws.Local.Controllers;
 
-var builder = WebApplication.CreateBuilder(args);
+var isTechnicalCommand = args.FirstOrDefault() is TechnicalAccountCommands.Enroll or TechnicalAccountCommands.ResetPassword;
+var builder = WebApplication.CreateBuilder(isTechnicalCommand ? [] : args);
 
 // Add services to the container.
 
@@ -32,6 +35,7 @@ builder.Services
 builder.Services.AddScoped<
     IEmployeeAuthenticationService,
     EmployeeAuthenticationService>();
+builder.Services.AddScoped<TechnicalAuthenticationService>();
 
 
 // Configure Identity lockout settings before builder.Build().
@@ -76,7 +80,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 
         var user = await userManager.GetUserAsync(context.Principal);
 
-        if (user is null || !user.IsActive)
+        if (user is null || !user.IsActive || await userManager.IsInRoleAsync(user, LocalRoles.SuperAdmin))
         {
             context.RejectPrincipal();
             await context.HttpContext.SignOutAsync(
@@ -85,6 +89,31 @@ builder.Services.ConfigureApplicationCookie(options =>
     };
 });
 
+builder.Services.AddAuthentication().AddCookie(TechnicalAccountController.Scheme, options =>
+{
+    options.LoginPath = "/system-admin/login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.Cookie.Name = "__Host-PawsNClaws.Technical";
+    options.Cookie.Path = "/";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    options.SlidingExpiration = false;
+    options.Events.OnValidatePrincipal = async context =>
+    {
+        var authentication = context.HttpContext.RequestServices.GetRequiredService<TechnicalAuthenticationService>();
+        var principal = await authentication.RevalidateAsync(context.Principal);
+        if (principal is null)
+        {
+            context.RejectPrincipal();
+            await context.HttpContext.SignOutAsync(TechnicalAccountController.Scheme);
+            return;
+        }
+
+        context.ReplacePrincipal(principal);
+    };
+});
 
 
 builder.Services.AddAuthorization(options =>
@@ -94,6 +123,8 @@ builder.Services.AddAuthorization(options =>
         options.AddPolicy(permission, policy =>
         {
             policy.RequireAuthenticatedUser();
+            if (permission == Permissions.TechnicalDashboardView)
+                policy.AddAuthenticationSchemes(TechnicalAccountController.Scheme);
 
             policy.AddRequirements(
                 new PermissionRequirement(permission));
@@ -137,6 +168,11 @@ builder.Services.AddScoped<IProductService, ProductService>();
 
 var app = builder.Build();
 
+if (isTechnicalCommand)
+{
+    await TechnicalAccountCommands.RunAsync(app, args);
+    return;
+}
 
 using (var scope = app.Services.CreateScope())
 {
@@ -147,32 +183,32 @@ using (var scope = app.Services.CreateScope())
 }
 
 
-if (app.Environment.IsDevelopment() &&
-    app.Configuration.GetValue<bool>("BootstrapAdmin:Enabled"))
+if (app.Environment.IsDevelopment())
 {
-    using var scope = app.Services.CreateScope();
-
-    var userManager = scope.ServiceProvider
-        .GetRequiredService<UserManager<LocalApplicationUser>>();
-
-    var roleManager = scope.ServiceProvider
-        .GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-
-    var email = app.Configuration["BootstrapAdmin:Email"];
-    var password = app.Configuration["BootstrapAdmin:Password"];
-
-    if (string.IsNullOrWhiteSpace(email) ||
-        string.IsNullOrWhiteSpace(password))
+    foreach (var sectionName in new[] { "BootstrapAdmin", "BootstrapBusinessAdmin" })
     {
-        throw new InvalidOperationException(
-            "Bootstrap admin credentials are missing.");
-    }
+        var section = app.Configuration.GetSection(sectionName);
+        if (!section.GetValue<bool>("Enabled"))
+            continue;
 
-    await LocalIdentitySeeder.SeedSuperAdminAsync(
-        userManager,
-        roleManager,
-        email,
-        password);
+        var email = section["Email"];
+        var password = section["Password"];
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            throw new InvalidOperationException($"Credentials for {sectionName} are missing.");
+
+        await using var scope = app.Services.CreateAsyncScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<LocalApplicationUser>>();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+        var db = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
+        if (sectionName == "BootstrapBusinessAdmin")
+            await LocalIdentitySeeder.SeedBusinessAdminAsync(userManager, roleManager, email.Trim(), password);
+        else
+            await LocalIdentitySeeder.SeedSuperAdminAsync(userManager, roleManager, email.Trim(), password);
+
+        await transaction.CommitAsync();
+    }
 }
 
 

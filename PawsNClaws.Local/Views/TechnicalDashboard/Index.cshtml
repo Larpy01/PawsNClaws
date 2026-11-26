@@ -1,0 +1,20 @@
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>System Administration - Paws N’ Claws</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+</head>
+<body>
+    <main class="container py-4">
+        <h1>System Administration</h1>
+        <form asp-controller="TechnicalAccount" asp-action="Logout" method="post">
+            <button type="submit" class="btn btn-outline-secondary">Sign out</button>
+        </form>
+    </main>
+</body>
+</html>

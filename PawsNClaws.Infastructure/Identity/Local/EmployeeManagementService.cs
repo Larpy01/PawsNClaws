@@ -97,13 +97,7 @@ public sealed class EmployeeManagementService
 
         var actorRoles = await _users.GetRolesAsync(actor);
 
-        bool isSuperAdmin =
-            actorRoles.Contains(LocalRoles.SuperAdmin);
-
-        bool isAdmin =
-            actorRoles.Contains(LocalRoles.Admin);
-
-        if (!isSuperAdmin && !isAdmin)
+        if (!CanManageEmployees(actorRoles))
             return (false, ["You are not authorized to create employees."]);
 
         string[] operationalRoles =
@@ -114,10 +108,7 @@ public sealed class EmployeeManagementService
         LocalRoles.InventoryStaff
         ];
 
-        bool isAllowed =
-            operationalRoles.Contains(
-                request.Role, StringComparer.Ordinal) ||
-            (request.Role == LocalRoles.Admin && isSuperAdmin);
+        bool isAllowed = operationalRoles.Contains(request.Role, StringComparer.Ordinal);
 
         if (!isAllowed)
             return (false, ["You are not authorized to assign this role."]);
@@ -218,8 +209,7 @@ public sealed class EmployeeManagementService
 
         var actorRoles = await _users.GetRolesAsync(actor);
 
-        if (!actorRoles.Contains(LocalRoles.SuperAdmin) &&
-            !actorRoles.Contains(LocalRoles.Admin))
+        if (!CanManageEmployees(actorRoles))
         {
             return (false,
                 ["You are not authorized to change employee status."]);
@@ -324,13 +314,7 @@ public sealed class EmployeeManagementService
         if (actor is null || !actor.IsActive)
             return (false, ["Administrator account is not active."]);
 
-        bool isSuperAdmin =
-            await _users.IsInRoleAsync(actor, LocalRoles.SuperAdmin);
-
-        bool isAdmin =
-            await _users.IsInRoleAsync(actor, LocalRoles.Admin);
-
-        if (!isSuperAdmin && !isAdmin)
+        if (!CanManageEmployees(await _users.GetRolesAsync(actor)))
             return (false, ["You are not authorized to change roles."]);
 
         if (!await _roles.RoleExistsAsync(request.NewRole))
@@ -405,6 +389,9 @@ public sealed class EmployeeManagementService
 
         return (true, Array.Empty<string>());
     }
+
+    private static bool CanManageEmployees(IList<string> roles) =>
+        roles.Contains(LocalRoles.Admin) && !roles.Contains(LocalRoles.SuperAdmin);
 
 
 }

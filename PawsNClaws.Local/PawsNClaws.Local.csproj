@@ -19,4 +19,8 @@
     <ProjectReference Include="..\PawsNClaws.Infastructure\PawsNClaws.Infastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="PawsNClaws.IntegrationTests" />
+  </ItemGroup>
+
 </Project>

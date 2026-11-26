@@ -5,7 +5,7 @@ using PawsNClaws.Infastructure.Identity.Local;
 
 namespace PawsNClaws.Local.Controllers;
 
-[Authorize(Roles = LocalRoles.SuperAdmin + "," + LocalRoles.Admin)]
+[Authorize(Roles = LocalRoles.Admin)]
 [Authorize(Policy = Permissions.UsersView)]
 public sealed class EmployeeAuditLogsController : Controller
 {

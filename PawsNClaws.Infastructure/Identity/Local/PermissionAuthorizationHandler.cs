@@ -13,8 +13,14 @@ public sealed class PermissionAuthorizationHandler
         if (context.User.Identity?.IsAuthenticated != true)
             return Task.CompletedTask;
 
-        if (context.User.HasClaim(
-            "Permission", requirement.Permission))
+        var isTechnicalAccount = context.User.IsInRole(LocalRoles.SuperAdmin);
+        var isTechnicalPermission = requirement.Permission == Permissions.TechnicalDashboardView;
+
+        // Technical identities cannot inherit business access through legacy or extra grants.
+        if (isTechnicalAccount != isTechnicalPermission)
+            return Task.CompletedTask;
+
+        if (context.User.HasClaim(LocalRoleSeeder.PermissionClaimType, requirement.Permission))
         {
             context.Succeed(requirement);
         }

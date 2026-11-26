@@ -38,10 +38,10 @@ public sealed class EmployeeAuthenticationService
             return new(EmployeeLoginStatus.InvalidCredentials);
         }
 
-        if (!user.IsActive)
+        if (!user.IsActive || await _users.IsInRoleAsync(user, LocalRoles.SuperAdmin))
         {
             _logger.LogWarning(
-                "Employee login rejected: inactive account. UserId={UserId}",
+                "Business sign-in rejected. UserId={UserId}",
                 user.Id);
 
             return new(EmployeeLoginStatus.InvalidCredentials);
@@ -69,10 +69,10 @@ public sealed class EmployeeAuthenticationService
         if (result.IsNotAllowed)
             return new(EmployeeLoginStatus.NotAllowed);
 
-        return new(
-            result.Succeeded
-                ? EmployeeLoginStatus.Success
-                : EmployeeLoginStatus.InvalidCredentials);
+        if (!result.Succeeded)
+            return new(EmployeeLoginStatus.InvalidCredentials);
+
+        return new(EmployeeLoginStatus.Success);
     }
 
 
