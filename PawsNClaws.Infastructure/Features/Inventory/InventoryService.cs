@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PawsNClaws.Application.Features.Inventory;
+using PawsNClaws.Application.Features.Products;
 using PawsNClaws.Domain.Entities;
 using PawsNClaws.Domain.Enums;
 using PawsNClaws.Infastructure.Identity.Local;
@@ -12,7 +13,7 @@ using PawsNClaws.Infastructure.Persistence.Local;
 namespace PawsNClaws.Infastructure.Features.Inventory;
 
 public sealed partial class InventoryService(
-    LocalDbContext db, InventoryEvidenceStore evidence, ILogger<InventoryService> logger) : IInventoryService
+    LocalDbContext db, InventoryEvidenceStore evidence, ILogger<InventoryService> logger, RetailTax retailTax) : IInventoryService
 {
     public async Task SetCatalogAsync(ClaimsPrincipal actor, CatalogSettings settings, CancellationToken ct)
     {
@@ -56,11 +57,16 @@ public sealed partial class InventoryService(
             var delivered = Quantity(product.Unit, command.Delivered, command.InputUnit);
             var accepted = Quantity(product.Unit, command.Accepted, command.InputUnit);
             var rejected = Quantity(product.Unit, command.Rejected, command.InputUnit);
+            var supplierVat = Money(command.SupplierInvoiceVat);
+            var reference = Optional(command.Reference, 100);
+            Require(!supplierVat.HasValue || (accepted > 0 && reference is not null),
+                "Enter the supplier invoice reference and an accepted quantity to record invoice VAT.");
             var existing = await db.Set<StockReceipt>().FindAsync([command.OperationId], ct);
             if (existing is not null)
             {
                 Require(existing.ActorId == actorId && existing.ProductId == product.Id &&
-                    existing.Delivered == delivered && existing.Accepted == accepted && existing.Rejected == rejected,
+                    existing.Delivered == delivered && existing.Accepted == accepted && existing.Rejected == rejected &&
+                    existing.SupplierInvoiceVat == supplierVat && (!supplierVat.HasValue || existing.Reference == reference),
                     "This operation ID was already used for a different receipt.");
                 return;
             }
@@ -86,8 +92,9 @@ public sealed partial class InventoryService(
             {
                 Id = command.OperationId, ProductId = product.Id, ActorId = actorId,
                 SupplierId = supplierEntry.Id, Supplier = supplierEntry.Name,
-                Reference = Optional(command.Reference, 100), Lot = lot, ExpiryDate = command.ExpiryDate,
+                Reference = reference, Lot = lot, ExpiryDate = command.ExpiryDate,
                 Delivered = delivered, Accepted = accepted, Rejected = rejected, UnitCost = Money(command.UnitCost),
+                SupplierInvoiceVat = supplierVat,
                 RejectionReason = rejected > 0 ? Required(command.RejectionReason, 500, "A rejection reason is required.") : null,
                 ReceivedAtUtc = DateTime.UtcNow
             };
@@ -284,7 +291,7 @@ public sealed partial class InventoryService(
     private static decimal? Money(decimal? value)
     {
         Require(!value.HasValue || (value >= 0 && value < 10_000_000_000_000_000m &&
-            decimal.Round(value.Value, 2) == value), "Enter a valid cost with no more than two decimal places.");
+            decimal.Round(value.Value, 2) == value), "Enter a valid amount with no more than two decimal places.");
         return value;
     }
 

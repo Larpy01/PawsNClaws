@@ -1,0 +1,42 @@
+@model PawsNClaws.Application.Features.Grooming.GroomingJobOrder
+@{
+    Layout = null;
+    var visit = Model.Checklist.Visit;
+    var estimate = visit.Estimate;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Job order · @estimate.Pet</title>
+<style>
+body { font: 1rem/1.5 system-ui,sans-serif; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
+table { width: 100%; border-collapse: collapse; } td,th { text-align: left; padding: .5rem; border-bottom: 1px solid #bbb; }
+tr { break-inside: avoid; } @@media print { nav { display: none; } body { margin: 0; } }
+</style>
+</head><body>
+<nav><button type="button" onclick="window.print()">Print job order</button> · <a asp-action="Details" asp-route-id="@visit.Id">Back to visit</a></nav>
+<h1>Grooming job order</h1>
+<p>Paws N’ Claws · @PhilippineDateTime.FormatUtc(visit.StartedAtUtc)<br />Price estimate version @visit.EstimateVersion</p>
+<h2>@estimate.Pet</h2>
+<p>@estimate.Owner<br />Phone: @(Model.Phone ?? "None recorded")<br />Address: @(Model.Address ?? "None recorded")</p>
+<table><thead><tr><th>Service or package</th><th>Quantity</th><th>Amount</th></tr></thead><tbody>
+@foreach (var line in estimate.Lines)
+{
+    <tr><td>@line.Name
+    @if (line.Services.Any(s => s != line.Name)) { <small>@string.Join(", ", line.Services)</small> }
+    </td><td>1</td><td>₱@line.Amount.ToString("N2")</td></tr>
+}
+</tbody></table>
+@if (estimate.OverrideTotal.HasValue) { <p>Custom total reason: @estimate.OverrideReason</p> }
+<p><strong>Estimated total: ₱@estimate.Total.ToString("N2")</strong></p>
+<p>Owner’s grooming instructions: @(Model.Instructions ?? "None recorded")</p>
+@if (Model.Checklist.Tasks.Count > 0)
+{
+    <p>Assigned groomers: @string.Join(", ", Model.Checklist.Tasks.SelectMany(x => x.AssignedGroomers).DistinctBy(x => x.Id).Select(x => x.Name))</p>
+}
+<p>Expected pickup time: __________________</p>
+@if (visit.PickedUpAtUtc.HasValue) { <p>Collected by @visit.CollectedBy · @PhilippineDateTime.FormatUtc(visit.PickedUpAtUtc.Value)</p> }
+<p>Deposit paid: ₱__________________ &nbsp; Balance due: ₱__________________</p>
+<p>Authorized staff signature: __________________________</p>
+</body></html>

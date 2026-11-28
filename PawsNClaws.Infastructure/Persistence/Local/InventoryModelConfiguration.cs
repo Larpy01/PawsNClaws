@@ -32,6 +32,10 @@ internal static class InventoryModelConfiguration
             entity.HasIndex(movement => movement.ReversesMovementId).IsUnique();
             entity.HasOne<InventoryMovement>().WithMany()
                 .HasForeignKey(movement => movement.ReversesMovementId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(movement => new { movement.GroomingVisitId, movement.ProductId }).IsUnique()
+                .HasFilter("[GroomingVisitId] IS NOT NULL");
+            entity.HasOne<GroomingVisit>().WithMany()
+                .HasForeignKey(movement => movement.GroomingVisitId).OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(movement => movement.UsageEstimateId).IsUnique();
             entity.HasOne<GroomingUsageEstimate>().WithMany()
                 .HasForeignKey(movement => movement.UsageEstimateId).OnDelete(DeleteBehavior.Restrict);
@@ -82,8 +86,14 @@ internal static class InventoryModelConfiguration
 
         builder.Entity<StockReceipt>(entity =>
         {
-            entity.ToTable("StockReceipts", table => table.HasCheckConstraint("CK_StockReceipts_Quantities",
-                "[Delivered] > 0 AND [Accepted] >= 0 AND [Rejected] >= 0 AND [Delivered] = [Accepted] + [Rejected]"));
+            entity.ToTable("StockReceipts", table =>
+            {
+                table.HasCheckConstraint("CK_StockReceipts_Quantities",
+                    "[Delivered] > 0 AND [Accepted] >= 0 AND [Rejected] >= 0 AND [Delivered] = [Accepted] + [Rejected]");
+                table.HasCheckConstraint("CK_StockReceipts_SupplierInvoiceVat",
+                    "[SupplierInvoiceVat] IS NULL OR ([SupplierInvoiceVat] >= 0 AND [Accepted] > 0 AND " +
+                    "[Reference] IS NOT NULL AND LEN([Reference]) > 0)");
+            });
             entity.Property(receipt => receipt.Supplier).HasMaxLength(150);
             entity.Property(receipt => receipt.Reference).HasMaxLength(100);
             entity.Property(receipt => receipt.Lot).HasMaxLength(100);
@@ -92,6 +102,7 @@ internal static class InventoryModelConfiguration
             entity.Property(receipt => receipt.Accepted).HasPrecision(18, 3);
             entity.Property(receipt => receipt.Rejected).HasPrecision(18, 3);
             entity.Property(receipt => receipt.UnitCost).HasPrecision(18, 2);
+            entity.Property(receipt => receipt.SupplierInvoiceVat).HasPrecision(18, 2);
             entity.HasOne<Product>().WithMany().HasForeignKey(receipt => receipt.ProductId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<InventoryBatch>().WithMany()
                 .HasForeignKey(receipt => new { receipt.BatchId, receipt.ProductId })

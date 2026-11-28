@@ -1,0 +1,107 @@
+@using PawsNClaws.Application.Features.Grooming
+@model GroomingCheckInPage
+@{
+    ViewData["Title"] = "Grooming check-in";
+    var statuses = Html.GetEnumSelectList<AssessmentStatus>();
+}
+<h1>Check in @Model.Visit.Estimate.Pet</h1>
+<p>Customer: @Model.Visit.Estimate.Owner</p>
+<form asp-action="CheckIn" asp-route-id="@Model.Visit.Id" method="post" enctype="multipart/form-data">
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <input asp-for="Form.VisitRevision" type="hidden" />
+    <fieldset class="mb-3">
+        <legend>Pet condition on arrival</legend>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label asp-for="Form.Skin" class="form-label"></label>
+                <select asp-for="Form.Skin" asp-items="statuses" class="form-select"></select>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Form.Coat" class="form-label"></label>
+                <select asp-for="Form.Coat" asp-items="statuses" class="form-select"></select>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Form.Ears" class="form-label"></label>
+                <select asp-for="Form.Ears" asp-items="statuses" class="form-select"></select>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Form.Nails" class="form-label"></label>
+                <select asp-for="Form.Nails" asp-items="statuses" class="form-select"></select>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Form.Teeth" class="form-label"></label>
+                <select asp-for="Form.Teeth" asp-items="statuses" class="form-select"></select>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Form.Gums" class="form-label"></label>
+                <select asp-for="Form.Gums" asp-items="statuses" class="form-select"></select>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Form.AnalGlands" class="form-label"></label>
+                <select asp-for="Form.AnalGlands" asp-items="statuses" class="form-select"></select>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Form.TicksAndFleas" class="form-label"></label>
+                <select asp-for="Form.TicksAndFleas" asp-items="statuses" class="form-select"></select>
+            </div>
+        </div>
+    </fieldset>
+    <div class="mb-3">
+        <label asp-for="Form.Findings" class="form-label"></label>
+        <textarea asp-for="Form.Findings" class="form-control" rows="2"></textarea>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Form.OwnerInstructions" class="form-label"></label>
+        <textarea asp-for="Form.OwnerInstructions" class="form-control" rows="2"></textarea>
+    </div>
+    <fieldset class="mb-3">
+        <legend>Products or solutions used at check-in</legend>
+        @if (Model.Products.Count == 0)
+        {
+            <p>No active grooming supplies are listed.</p>
+        }
+        else
+        {
+            <p class="form-text">Check the supplies you used. Leave them unchecked if you used none.</p>
+            <div class="row g-2 mb-3">
+                @foreach (var product in Model.Products)
+                {
+                    <div class="col-sm-6">
+                        <label class="d-block border rounded p-2">
+                            <input type="checkbox" name="productIds" value="@product.Id" class="form-check-input me-2"
+                                   checked="@Model.SelectedProductIds.Contains(product.Id)" />
+                            @product.Label
+                        </label>
+                    </div>
+                }
+            </div>
+        }
+        <label asp-for="Form.SolutionsUsed" class="form-label"></label>
+        <textarea asp-for="Form.SolutionsUsed" class="form-control" rows="2"></textarea>
+    </fieldset>
+    <div class="mb-3">
+        <label asp-for="Form.StaffNotes" class="form-label"></label>
+        <textarea asp-for="Form.StaffNotes" class="form-control" rows="2"></textarea>
+    </div>
+    <fieldset class="mb-3">
+        <legend>Signed paper waiver</legend>
+        <p>Attach a copy of the signed waiver for price estimate version @Model.Visit.EstimateVersion.</p>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label asp-for="Form.Signer" class="form-label"></label>
+                <input asp-for="Form.Signer" class="form-control" required />
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Form.SignedOn" class="form-label"></label>
+                <input asp-for="Form.SignedOn" class="form-control" required />
+            </div>
+        </div>
+        <div class="mt-3">
+            <label for="waiver" class="form-label">Waiver file</label>
+            <input type="file" id="waiver" name="waiver" class="form-control" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" required />
+            <div class="form-text"> Attach a PDF, JPEG, or PNG up to 5 MB.</div>
+        </div>
+    </fieldset>
+    <button type="submit" class="btn btn-primary">Save check-in</button>
+    <a asp-action="Details" asp-route-id="@Model.Visit.Id" class="btn btn-link">Cancel</a>
+</form>

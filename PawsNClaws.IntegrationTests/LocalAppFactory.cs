@@ -21,16 +21,28 @@ namespace PawsNClaws.IntegrationTests;
 
 public sealed class LocalAppFactory : WebApplicationFactory<Program>
 {
+    private readonly string _environment;
+    private readonly bool _vatRegistered;
     private readonly string _databaseName = $"PawsNClawsTests_{Guid.NewGuid():N}";
+
+    public LocalAppFactory() : this("Testing") { }
+
+    internal LocalAppFactory(string environment, bool vatRegistered = false)
+    {
+        _environment = environment;
+        _vatRegistered = vatRegistered;
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(_environment);
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:LocalConnection"] = null,
                 ["BootstrapAdmin:Enabled"] = "false",
+                ["BootstrapBusinessAdmin:Enabled"] = "false",
+                ["RetailTax:VatRegistered"] = _vatRegistered.ToString(),
                 ["Logging:LogLevel:Default"] = "Warning"
             }));
         builder.ConfigureTestServices(services =>

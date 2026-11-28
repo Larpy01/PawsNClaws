@@ -43,6 +43,149 @@ public class LocalDbContext
         builder.ApplyConfiguration(new StockOutRequestEvidenceConfiguration());
         InventoryModelConfiguration.Configure(builder);
         CustomerRecordsConfiguration.Configure(builder);
+        GroomingPlanningConfiguration.Configure(builder);
+        builder.Entity<SmsNotification>(notification =>
+        {
+            notification.HasKey(x => new { x.Kind, x.SourceId });
+            notification.HasIndex(x => new { x.Status, x.NextAttemptUtc });
+            notification.Property(x => x.Status).IsConcurrencyToken();
+            notification.Property(x => x.NextAttemptUtc).IsConcurrencyToken();
+            notification.Property(x => x.ProviderBatchId).HasMaxLength(80);
+            notification.Property(x => x.Outcome).HasMaxLength(40);
+        });
+        builder.Entity<CashDrawerShift>(shift =>
+        {
+            shift.ToTable("CashDrawerShifts", table => table.HasCheckConstraint("CK_CashDrawerShifts_Amounts",
+                "[OpeningCash] >= 0 AND (([ClosedAtUtc] IS NULL AND [CountedCash] IS NULL AND [ExpectedAtClose] IS NULL AND [ClosedByEmployeeId] IS NULL) OR " +
+                "([ClosedAtUtc] IS NOT NULL AND [CountedCash] IS NOT NULL AND [CountedCash] >= 0 AND [ExpectedAtClose] IS NOT NULL AND [ExpectedAtClose] >= 0 AND [ClosedByEmployeeId] IS NOT NULL))"));
+            shift.Property(x => x.OpeningCash).HasPrecision(18, 2);
+            shift.Property(x => x.CountedCash).HasPrecision(18, 2);
+            shift.Property(x => x.ExpectedAtClose).HasPrecision(18, 2);
+            shift.HasIndex(x => x.ClosedAtUtc, "IX_CashDrawerShifts_OnlyOpenShift").IsUnique().HasFilter("[ClosedAtUtc] IS NULL");
+            shift.HasIndex(x => x.ClosedAtUtc, "IX_CashDrawerShifts_ClosedHistory");
+        });
+        builder.Entity<CashDrawerEntry>(entry =>
+        {
+            entry.ToTable("CashDrawerEntries", table => table.HasCheckConstraint("CK_CashDrawerEntries_Amount", "[Amount] <> 0"));
+            entry.Property(x => x.Amount).HasPrecision(18, 2);
+            entry.Property(x => x.Reason).HasMaxLength(500);
+            entry.HasIndex(x => new { x.Kind, x.ReferenceId }).IsUnique();
+            entry.HasIndex(x => new { x.ShiftId, x.RecordedAtUtc });
+            entry.HasOne<CashDrawerShift>().WithMany().HasForeignKey(x => x.ShiftId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<RetailSale>(sale =>
+        {
+            sale.ToTable("RetailSales", table =>
+            {
+                table.HasCheckConstraint("CK_RetailSales_Amounts", "[Total] >= 0 AND [Tendered] >= [Total]");
+                table.HasCheckConstraint("CK_RetailSales_Payment",
+                    "([PaymentMethod] = 0 AND [OnlinePaymentReference] IS NULL) OR " +
+                    "([PaymentMethod] = 1 AND [Total] > 0 AND [Tendered] = [Total] AND " +
+                    "[OnlinePaymentReference] IS NOT NULL AND LEN([OnlinePaymentReference]) > 0)");
+                table.HasCheckConstraint("CK_RetailSales_Vat",
+                    "([VatRate] IS NULL AND [VatAmount] IS NULL) OR " +
+                    "([VatRate] IS NOT NULL AND [VatAmount] IS NOT NULL AND " +
+                    "(([VatRate] = 0 AND [VatAmount] = 0) OR ([VatRate] > 0 AND [VatRate] <= 1 AND " +
+                    "[VatAmount] = ROUND([Total] * [VatRate] / (1 + [VatRate]), 2))))");
+            });
+            sale.Property(x => x.Total).HasPrecision(18, 2);
+            sale.Property(x => x.VatRate).HasPrecision(5, 4);
+            sale.Property(x => x.VatAmount).HasPrecision(18, 2);
+            sale.Property(x => x.VoidReason).HasMaxLength(500);
+            sale.HasIndex(x => new { x.RecordedAtUtc, x.Id });
+            sale.Property(x => x.Tendered).HasPrecision(18, 2);
+            sale.Property(x => x.OnlinePaymentReference).HasMaxLength(80).IsUnicode(false);
+            sale.HasIndex(x => x.OnlinePaymentReference).IsUnique().HasFilter("[OnlinePaymentReference] IS NOT NULL");
+            sale.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Entity<RetailSaleLine>(line =>
+        {
+            line.ToTable("RetailSaleLines", table => table.HasCheckConstraint("CK_RetailSaleLines_Amounts",
+                "[Quantity] > 0 AND [UnitPrice] >= 0"));
+            line.HasKey(x => new { x.SaleId, x.ProductId });
+            line.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            line.HasOne<InventoryMovement>().WithOne().HasForeignKey<RetailSaleLine>(x => x.InventoryMovementId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Entity<GroomingBill>(bill =>
+        {
+            bill.ToTable("GroomingBills", table => table.HasCheckConstraint("CK_GroomingBills_Total", "[Total] >= 0"));
+            bill.HasKey(x => x.VisitId);
+            bill.Property(x => x.Total).HasPrecision(18, 2);
+            bill.Property(x => x.HomeDepositAmount).HasPrecision(18, 2);
+            bill.Property(x => x.HomeDepositReference).HasMaxLength(100);
+            bill.HasOne<OffsiteBooking>().WithOne().HasForeignKey<GroomingBill>(x => x.HomeDepositBookingId)
+                .OnDelete(DeleteBehavior.Restrict);
+            bill.Property(x => x.Revision).IsConcurrencyToken();
+            bill.HasIndex(x => x.IssuedAtUtc);
+            bill.HasOne<GroomingVisit>().WithOne().HasForeignKey<GroomingBill>(x => x.VisitId)
+                .OnDelete(DeleteBehavior.Restrict);
+            bill.HasMany(x => x.Payments).WithOne().HasForeignKey(x => x.VisitId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Entity<GroomingCashPayment>(payment =>
+        {
+            payment.ToTable("GroomingCashPayments", table => table.HasCheckConstraint(
+                "CK_GroomingCashPayments_Amounts", "[Amount] > 0 AND [Tendered] >= [Amount]"));
+            payment.Property(x => x.Amount).HasPrecision(18, 2);
+            payment.Property(x => x.Tendered).HasPrecision(18, 2);
+        });
+
+        builder.Entity<OffsiteBooking>(entry =>
+        {
+            entry.ToTable("OffsiteBookings");
+            entry.Property(x => x.Revision).IsConcurrencyToken();
+            entry.Property(x => x.Address).HasMaxLength(300);
+            entry.Property(x => x.Phone).HasMaxLength(40);
+            entry.Property(x => x.ReviewReason).HasMaxLength(500);
+            entry.Property(x => x.DepositRequired).HasPrecision(18, 2);
+            entry.Property(x => x.VerifiedDeposit).HasPrecision(18, 2);
+            entry.Property(x => x.DepositReference).HasMaxLength(100);
+            entry.HasIndex(x => new { x.HomeGroomerId, x.RequestedAtUtc });
+            entry.HasOne<LocalApplicationUser>().WithMany().HasForeignKey(x => x.HomeGroomerId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entry.Property(x => x.HomeCancellationReason).HasMaxLength(500);
+            entry.Property(x => x.RefundReviewNote).HasMaxLength(500);
+            entry.Property(x => x.TransportCancellationReason).HasMaxLength(500);
+            entry.HasIndex(x => new { x.EstimateId, x.Kind }).IsUnique()
+                .HasFilter("[Status] <> 3 AND [Status] <> 7");
+            entry.HasIndex(x => new { x.Status, x.RequestedAtUtc });
+            entry.HasIndex(x => new { x.TransportEmployeeId, x.TransportStartUtc });
+            entry.Property(x => x.ReleasedByName).HasMaxLength(150);
+            entry.Property(x => x.AcceptedByName).HasMaxLength(150);
+            entry.HasOne<LocalApplicationUser>().WithMany().HasForeignKey(x => x.TransportEmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entry.HasOne<GroomingQuoteRevision>().WithMany().HasForeignKey(x => new { x.EstimateId, x.EstimateVersion })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<GroomingAppointment>(entry =>
+        {
+            entry.ToTable("GroomingAppointments");
+            entry.Property(x => x.Revision).IsConcurrencyToken();
+            entry.Property(x => x.CancellationReason).HasMaxLength(500);
+            entry.HasIndex(x => x.EstimateId).IsUnique().HasFilter("[CancelledAtUtc] IS NULL");
+            entry.HasIndex(x => new { x.GroomerId, x.StartsAtUtc });
+            entry.HasIndex(x => new { x.PetId, x.StartsAtUtc });
+            entry.HasIndex(x => x.StartsAtUtc);
+            entry.HasOne<PetRecord>().WithMany().HasForeignKey(x => x.PetId).OnDelete(DeleteBehavior.Restrict);
+            entry.HasOne<LocalApplicationUser>().WithMany().HasForeignKey(x => x.GroomerId).OnDelete(DeleteBehavior.Restrict);
+            entry.HasOne<GroomingQuoteRevision>().WithMany().HasForeignKey(x => new { x.EstimateId, x.EstimateVersion })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<WalkInEntry>(entry =>
+        {
+            entry.ToTable("WalkInQueue");
+            entry.Property(x => x.Revision).IsConcurrencyToken();
+            entry.Property(x => x.PriorityReason).HasMaxLength(500);
+            entry.Property(x => x.CancellationReason).HasMaxLength(500);
+            entry.HasIndex(x => x.PetId).IsUnique().HasFilter("[IsOpen] = 1");
+            entry.HasIndex(x => new { x.IsOpen, x.Status, x.ArrivedAtUtc, x.Id });
+            entry.HasOne<PetRecord>().WithMany().HasForeignKey(x => x.PetId).OnDelete(DeleteBehavior.Restrict);
+            entry.HasOne<GroomingVisit>().WithMany().HasForeignKey(x => x.VisitId).OnDelete(DeleteBehavior.Restrict);
+        });
 
         builder.Entity<GroomingService>(entity =>
         {

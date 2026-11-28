@@ -1,0 +1,60 @@
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using PawsNClaws.Infastructure.Identity.Local
+@inject IAuthorizationService AuthorizationService
+@model AppointmentBoard
+@{
+    ViewData["Title"] = "Grooming appointments";
+    var date = Model.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var canManage = (await AuthorizationService.AuthorizeAsync(User, Permissions.GroomingCatalogManage)).Succeeded;
+}
+<h1>Grooming appointments</h1>
+@if (canManage)
+{
+    <p><a asp-controller="Customers" asp-action="Index">Find a pet and open its price estimate to schedule an appointment</a></p>
+}
+<form asp-action="Index" method="get" class="mb-3">
+    <label for="date" class="form-label">Schedule date </label>
+    <input type="date" id="date" name="date" value="@date" required />
+    <button class="btn btn-outline-primary">Show schedule</button>
+</form>
+@if (TempData["AppointmentSuccess"] is string success) { <p class="alert alert-success" role="status">@success</p> }
+@if (TempData["AppointmentError"] is string error) { <p class="alert alert-danger" role="alert">@error</p> }
+@if (Model.Rows.Count == 0) { <p>No appointments on this date.</p> }
+@foreach (var row in Model.Rows)
+{
+    <section class="card card-body mb-3">
+        <h2 class="h5">@row.Pet · @row.Groomer</h2>
+        <p>@PhilippineDateTime.FormatUtc(row.StartsAtUtc) to @PhilippineDateTime.FormatUtc(row.EndsAtUtc)</p>
+        @if (row.CancelledAtUtc.HasValue)
+        {
+            <p>Cancelled · @row.CancellationReason</p>
+        }
+        else if (row.VisitId is Guid visitId)
+        {
+            <p>Grooming visit started</p>
+            @if (canManage) { <p><a asp-controller="GroomingVisits" asp-action="Details" asp-route-id="@visitId">Open grooming visit</a></p> }
+        }
+        else if (canManage)
+        {
+            <p><a asp-controller="GroomingPlanning" asp-action="History" asp-route-id="@row.EstimateId">Open price estimate (version @row.Version)</a></p>
+            <form asp-controller="GroomingVisits" asp-action="Start" method="post" class="mb-2">
+                <input type="hidden" name="appointmentId" value="@row.Id" />
+                <input type="hidden" name="estimateId" value="@row.EstimateId" />
+                <input type="hidden" name="version" value="@row.Version" />
+                <button class="btn btn-primary">Start grooming visit</button>
+            </form>
+            <details>
+                <summary>Cancel appointment</summary>
+                <form asp-action="Cancel" asp-route-id="@row.Id" method="post" class="mt-2">
+                    <input type="hidden" name="revision" value="@row.Revision" />
+                    <input type="hidden" name="date" value="@date" />
+                    <label class="form-label d-block">Cancellation reason
+                        <input name="reason" class="form-control" required maxlength="500" />
+                    </label>
+                    <button class="btn btn-outline-danger">Confirm cancellation</button>
+                </form>
+            </details>
+        }
+    </section>
+}

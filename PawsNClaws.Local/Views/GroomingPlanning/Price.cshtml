@@ -1,0 +1,50 @@
+@using PawsNClaws.Application.Features.Grooming
+@model GroomingPriceForm
+@{
+    ViewData["Title"] = "Price rule";
+    var options = (IReadOnlyList<PlanningOption>)ViewData["Options"]!;
+}
+<h1>Price rule</h1>
+<form method="post" class="col-lg-7">
+    @Html.AntiForgeryToken()
+    <input asp-for="Version" type="hidden" />
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <div class="mb-3">
+        <label asp-for="TargetId" class="form-label"></label>
+        <select asp-for="TargetId" class="form-select">
+            <option value="">Choose a service or package</option>
+            @foreach (var option in options)
+            {
+                <option value="@option.Id">@option.Label@(!option.Available ? " (unavailable)" : "")</option>
+            }
+        </select>
+    </div>
+    <p class="form-text">Leave a field blank or enter “All” if it does not affect the price. For example, enter Dog and leave breed, size, and coat condition blank to set a price for all dogs.</p>
+    <div class="mb-3">
+        <label asp-for="Species" class="form-label"></label>
+        <input asp-for="Species" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Breed" class="form-label"></label>
+        <input asp-for="Breed" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Size" class="form-label"></label>
+        <input asp-for="Size" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Condition" class="form-label"></label>
+        <input asp-for="Condition" class="form-control" aria-describedby="price-coat-help" />
+        <div id="price-coat-help" class="form-text">Fill this in only if the price depends on the coat. For example, use “Matted” for tangled fur that takes extra time to groom.</div>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Amount" class="form-label"></label>
+        <input asp-for="Amount" class="form-control" type="number" min="0" step="0.01" />
+    </div>
+    <div class="form-check mb-3">
+        <input asp-for="IsActive" class="form-check-input" />
+        <label asp-for="IsActive" class="form-check-label">Active</label>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a asp-action="Index" class="btn btn-link">Cancel</a>
+</form>

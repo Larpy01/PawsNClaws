@@ -1,0 +1,49 @@
+@using PawsNClaws.Application.Features.Grooming
+@model VisitCashPrintout
+@{
+    Layout = null;
+    var payment = Model.Payment;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cash payment record · @payment.Id</title>
+    <style>
+        body { font: 1rem/1.5 system-ui, sans-serif; max-width: 34rem; margin: 2rem auto; padding: 0 1rem; color: #171717; }
+        h1 { margin: .5rem 0; }
+        p { margin: .4rem 0; }
+        nav { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.5rem; }
+        button { font: inherit; padding: .4rem .8rem; }
+        dl { margin: 1rem 0; }
+        .line { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #aaa; padding: .4rem 0; }
+        dd { margin: 0; font-variant-numeric: tabular-nums; }
+        .reference { overflow-wrap: anywhere; }
+        @@media print {
+            body { margin: 0; max-width: none; padding: 0; }
+            nav { display: none; }
+            dl, .reference { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <nav aria-label="Payment record actions">
+        <button type="button" onclick="window.print()">Print payment record</button>
+        <a asp-action="Details" asp-route-visitId="@Model.VisitId">Back to grooming bill</a>
+    </nav>
+    <main>
+        <p>Paws N’ Claws</p>
+        <h1>Cash payment record</h1>
+        <p><strong>@Model.Pet</strong> · @Model.Owner</p>
+        <p>Price estimate version @Model.EstimateVersion</p>
+        <p>Recorded @PhilippineDateTime.FormatUtc(payment.RecordedAtUtc)</p>
+        <dl>
+            <div class="line"><dt>Payment</dt><dd>₱@payment.Amount.ToString("N2")</dd></div>
+            <div class="line"><dt>Cash received</dt><dd>₱@payment.Tendered.ToString("N2")</dd></div>
+            <div class="line"><dt>Change</dt><dd>₱@payment.Change.ToString("N2")</dd></div>
+        </dl>
+        <p class="reference">Payment reference <strong>@payment.Id</strong></p>
+    </main>
+</body>
+</html>

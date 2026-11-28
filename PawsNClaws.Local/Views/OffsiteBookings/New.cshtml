@@ -1,0 +1,29 @@
+@using PawsNClaws.Domain.Entities
+@model OffsiteBookingPage
+@{ ViewData["Title"] = "Record off-site request"; }
+<h1>Record an off-site request</h1>
+<p>@Model.Estimate.Snapshot.Pet · @Model.Estimate.Snapshot.Owner · Price estimate version @Model.Estimate.Number</p>
+<p>Home grooming and pet transport serve downtown Davao City. Staff review the address and availability.</p>
+<div asp-validation-summary="All" class="text-danger" role="alert"></div>
+<form asp-action="New" asp-route-estimateId="@Model.Estimate.Id" method="post">
+    <input type="hidden" name="version" value="@Model.Estimate.Number" />
+    <label class="d-block mb-3">Request type
+        <select name="kind" class="form-select" required>
+            <option value="">Choose a request type</option>
+            <option value="HomeService" selected="@(Model.Kind == OffsiteKind.HomeService)">Home grooming</option>
+            <option value="Pickup" selected="@(Model.Kind == OffsiteKind.Pickup)">Pick up pet from customer</option>
+            <option value="ReturnDelivery" selected="@(Model.Kind == OffsiteKind.ReturnDelivery)">Return pet to customer</option>
+        </select>
+    </label>
+    <label class="d-block mb-3">Requested date and time (Philippine time)
+        <input name="requestedAt" type="datetime-local" class="form-control" value="@Model.RequestedAt" required />
+    </label>
+    <label class="d-block mb-3">Service address
+        <input name="address" class="form-control" value="@Model.Address" maxlength="300" required />
+    </label>
+    <label class="d-block mb-3">Contact number
+        <input name="phone" type="tel" class="form-control" value="@Model.Phone" maxlength="40" required />
+    </label>
+    <button class="btn btn-primary">Save request for review</button>
+    <a asp-controller="GroomingPlanning" asp-action="History" asp-route-id="@Model.Estimate.Id" class="btn btn-link">Back to price estimate</a>
+</form>

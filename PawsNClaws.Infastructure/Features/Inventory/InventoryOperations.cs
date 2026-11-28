@@ -195,9 +195,9 @@ public sealed partial class InventoryService
             });
     }
 
-    private async Task TakeUsableStockAsync(InventoryMovement movement, decimal quantity, CancellationToken ct)
+    private async Task TakeUsableStockAsync(InventoryMovement movement, decimal quantity, CancellationToken ct, DateOnly? usageDate = null)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = usageDate ?? DateOnly.FromDateTime(DateTime.Today);
         var batches = await db.Set<InventoryBatch>()
             .Where(x => x.ProductId == movement.ProductId && x.OnHand > x.Quarantined &&
                 (x.ExpiryDate == null || x.ExpiryDate >= today))
@@ -223,19 +223,33 @@ public sealed partial class InventoryService
             .SingleOrDefaultAsync(x => x.Id == command.MovementId && x.ProductId == command.ProductId &&
                 x.MovementType == originalType, ct)
             ?? throw new InventoryRuleException("The original movement was not found.");
+        Require(!await db.Set<RetailSaleLine>().AnyAsync(x => x.InventoryMovementId == original.Id, ct),
+            "This stock movement belongs to a retail checkout and must be corrected with the sale.");
+        await ReverseMovementAsync(original, actorId, command.OperationId, type,
+            Required(command.Reason, 500, "A correction reason is required."), quarantine: false, ct);
+    }
+
+    private async Task ReverseMovementAsync(InventoryMovement original, Guid actorId, Guid operationId,
+        InventoryMovementType type, string reason, bool quarantine, CancellationToken ct)
+    {
         Require(original.Allocations.Count > 0 && original.Allocations.Sum(x => x.QuantityChange) == original.QuantityChange,
             "The original movement has no complete batch allocation.");
         Require(!await db.InventoryMovements.AnyAsync(x => x.ReversesMovementId == original.Id, ct),
             "The original movement was already reversed.");
-        var reason = Required(command.Reason, 500, "A correction reason is required.");
-        var reversal = await MoveAsync(original.ProductId, actorId, command.OperationId, type,
+        var reversal = await MoveAsync(original.ProductId, actorId, operationId, type,
             -original.QuantityChange, reason, ct);
         reversal.ReversesMovementId = original.Id;
         foreach (var allocation in original.Allocations)
         {
             var batch = await BatchAsync(allocation.BatchId, original.ProductId, ct);
-            batch.OnHand -= allocation.QuantityChange;
-            Allocate(reversal, batch.Id, -allocation.QuantityChange);
+            var restored = -allocation.QuantityChange;
+            batch.OnHand += restored;
+            if (quarantine)
+            {
+                batch.Quarantined += restored;
+                RecordQuarantine(Guid.NewGuid(), batch.Id, actorId, restored, reason);
+            }
+            Allocate(reversal, batch.Id, restored);
         }
     }
 

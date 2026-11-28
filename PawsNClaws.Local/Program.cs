@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using PawsNClaws.Application.Features.Authentication.Interfaces;
 using PawsNClaws.Application.Features.Employees.Interfaces;
 using PawsNClaws.Application.Features.Inventory;
+using PawsNClaws.Application.Features.Products;
 using PawsNClaws.Application.Features.Products.Interfaces;
 using PawsNClaws.Infastructure.Features.Products;
 using PawsNClaws.Infastructure.Features.Inventory;
@@ -13,9 +14,13 @@ using PawsNClaws.Infastructure.Identity.Local;
 using PawsNClaws.Infastructure.Persistence.Local;
 using PawsNClaws.Local;
 using PawsNClaws.Local.Controllers;
+using PawsNClaws.Local.Notifications;
+using PawsNClaws.Infastructure.Features.Notifications;
 
 var isTechnicalCommand = args.FirstOrDefault() == TechnicalAccountCommands.ResetPassword;
 var builder = WebApplication.CreateBuilder(isTechnicalCommand ? [] : args);
+builder.Services.AddSingleton(services =>
+    new RetailTax(services.GetRequiredService<IConfiguration>().GetValue<bool>("RetailTax:VatRegistered")));
 
 // Add services to the container.
 
@@ -173,9 +178,32 @@ builder.Services.AddScoped<
 
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<PawsNClaws.Application.Features.Customers.ICustomerRecords, PawsNClaws.Infastructure.Features.Customers.CustomerRecords>();
-builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<InventoryService>();
+builder.Services.AddScoped<IInventoryService>(services => services.GetRequiredService<InventoryService>());
+builder.Services.AddScoped<ICashDrawer, CashDrawer>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Reports.IOperationsReports,
+    PawsNClaws.Infastructure.Features.Reports.OperationsReports>();
+builder.Services.AddScoped<IRetailCheckout>(services => services.GetRequiredService<InventoryService>());
+builder.Services.AddScoped<SmsDispatcher>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Notifications.ISmsQueueStatus, SmsQueueStatus>();
+builder.Services.AddHttpClient<TextBeeClient>(client => client.Timeout = TimeSpan.FromSeconds(20))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false })
+    .RemoveAllLoggers();
+builder.Services.AddHostedService<SmsDeliveryWorker>();
 builder.Services.AddScoped<PawsNClaws.Application.Features.Grooming.IGroomingCatalog,
     PawsNClaws.Infastructure.Features.Grooming.GroomingCatalog>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Grooming.IGroomingPlanning,
+    PawsNClaws.Infastructure.Features.Grooming.GroomingPlanning>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Grooming.IGroomingVisits,
+    PawsNClaws.Infastructure.Features.Grooming.GroomingVisits>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Grooming.IVisitBilling,
+    PawsNClaws.Infastructure.Features.Grooming.VisitBilling>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Grooming.IOffsiteBookings,
+    PawsNClaws.Infastructure.Features.Grooming.OffsiteBookings>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Grooming.IGroomingAppointments,
+    PawsNClaws.Infastructure.Features.Grooming.GroomingAppointments>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Grooming.IWalkInQueue,
+    PawsNClaws.Infastructure.Features.Grooming.WalkInQueue>();
 builder.Services.AddSingleton(_ => new InventoryEvidenceStore(Path.Combine(
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PawsNClaws", "InventoryEvidence")));
 

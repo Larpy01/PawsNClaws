@@ -1,0 +1,126 @@
+@using PawsNClaws.Application.Features.Grooming
+@using Microsoft.AspNetCore.Authorization
+@using PawsNClaws.Infastructure.Identity.Local
+@inject IAuthorizationService AuthorizationService
+@model GroomingVisitDetails
+@{
+    ViewData["Title"] = "Grooming visit";
+    var versions = (IReadOnlyList<QuoteVersion>)ViewData["EstimateVersions"]!;
+    var cancelledCheckIns = (IReadOnlyList<CancelledGroomingCheckIn>)ViewData["CancelledCheckIns"]!;
+    var hasCheckIn = ViewData["CheckIn"] is GroomingCheckInDetails;
+}
+<h1>Grooming visit for @Model.Estimate.Pet</h1>
+<p>Customer: @Model.Estimate.Owner</p>
+<p>Started @PhilippineDateTime.FormatUtc(Model.StartedAtUtc)</p>
+<p>Price estimate version @Model.EstimateVersion</p>
+<h2 class="h5">Services for this visit</h2>
+<ul>
+@foreach (var line in Model.Estimate.Lines)
+{
+    @foreach (var service in line.Services)
+    {
+        <li>@service</li>
+    }
+}
+</ul>
+<p><strong>Total ₱@Model.Estimate.Total.ToString("N2")</strong></p>
+<hr />
+<h2 class="h5">Check-in</h2>
+@if (ViewData["CheckIn"] is GroomingCheckInDetails checkIn)
+{
+    @if ((await AuthorizationService.AuthorizeAsync(User, Permissions.InventoryUse)).Succeeded)
+    {
+        <p><a asp-action="Supplies" asp-route-id="@Model.Id">Grooming supplies used</a></p>
+    }
+    @if ((await AuthorizationService.AuthorizeAsync(User, Permissions.PosCreateSale)).Succeeded)
+    {
+        <form asp-controller="VisitBilling" asp-action="Issue" asp-route-visitId="@Model.Id" method="post" class="mb-3">
+            <button type="submit" class="btn btn-outline-primary">Open or issue grooming bill</button>
+        </form>
+    }
+    <p><a asp-action="JobOrder" asp-route-id="@Model.Id">Print job order</a></p>
+    <p>Checked in @PhilippineDateTime.FormatUtc(checkIn.RecordedAtUtc)</p>
+    @if (!Model.PickedUpAtUtc.HasValue)
+    {
+    <p><a asp-action="Tasks" asp-route-id="@Model.Id">Manage grooming tasks and print checklist</a></p>
+    }
+    <partial name="_Assessment" model="checkIn.Assessment" />
+    <p>Waiver version: @Model.EstimateVersion</p>
+    <p><a asp-action="Waiver" asp-route-id="@Model.Id">Download signed waiver</a></p>
+}
+else
+{
+    <p>Waiting for check-in.</p>
+    <p><a asp-action="CheckIn" asp-route-id="@Model.Id" class="btn btn-primary">Check in pet</a></p>
+}
+@if (TempData["EstimateChangeError"] is string changeError)
+{
+    <p class="alert alert-danger" role="alert">@changeError</p>
+}
+@if (TempData["PickupError"] is string pickupError) { <p class="alert alert-danger" role="alert">@pickupError</p> }
+@if (ViewData["PickupChecklist"] is VisitChecklist checklist)
+{
+    <h2 class="h5">Pet pickup</h2>
+    @if (Model.PickedUpAtUtc.HasValue)
+    {
+        <p>Picked up by @Model.CollectedBy on @PhilippineDateTime.FormatUtc(Model.PickedUpAtUtc.Value)</p>
+    }
+    @if (checklist.Tasks.Count > 0 && checklist.Tasks.All(x => x.Completed.HasValue))
+    {
+        <h3 class="h6">Care instructions for the owner</h3>
+        @if (checklist.Tasks.All(x => string.IsNullOrWhiteSpace(x.Aftercare))) { <p>No care instructions recorded.</p> }
+        @foreach (var task in checklist.Tasks.Where(x => !string.IsNullOrWhiteSpace(x.Aftercare)))
+        {
+            <p><strong>@task.Service</strong> · @task.Aftercare</p>
+        }
+        @if (!Model.PickedUpAtUtc.HasValue)
+        {
+            <form asp-action="Pickup" asp-route-id="@Model.Id" method="post" class="mb-3">
+                <input type="hidden" name="revision" value="@Model.RevisionToken" />
+                <label for="collectedBy" class="form-label">Who is picking up the pet?</label>
+                <input id="collectedBy" name="collectedBy" class="form-control mb-2" maxlength="150" required />
+                <button class="btn btn-primary">Record pickup</button>
+            </form>
+        }
+    }
+    else { <p>Finish all grooming tasks before recording pickup.</p> }
+}
+@if (!Model.PickedUpAtUtc.HasValue && versions.Count > 0)
+{
+    <details class="my-3">
+        <summary>@(hasCheckIn ? "Cancel check-in and change version" : "Change price estimate version")</summary>
+        <form asp-action="ChangeEstimate" asp-route-id="@Model.Id" method="post" class="mt-3">
+            <input type="hidden" name="revision" value="@Model.RevisionToken" />
+            <label for="version" class="form-label">New price estimate version</label>
+            <select id="version" name="version" class="form-select mb-3" required>
+                <option value="">Choose a version</option>
+                @foreach (var version in versions)
+                {
+                    <option value="@version.Number">Version @version.Number · ₱@version.Snapshot.Total.ToString("N2")</option>
+                }
+            </select>
+            @if (hasCheckIn)
+            {
+                <p>The original assessment and waiver stay in the visit history. Check in again after changing versions.</p>
+                <label for="reason" class="form-label">Reason for cancelling check-in</label>
+                <textarea id="reason" name="reason" class="form-control mb-3" maxlength="500" required></textarea>
+            }
+            <button type="submit" class="btn btn-outline-primary">@(hasCheckIn ? "Cancel check-in and change version" : "Change version")</button>
+        </form>
+    </details>
+}
+@if (cancelledCheckIns.Count > 0)
+{
+    <h2 class="h5">Cancelled check-ins</h2>
+    @foreach (var cancelled in cancelledCheckIns)
+    {
+        <details class="mb-3">
+            <summary>Version @cancelled.EstimateVersion · @PhilippineDateTime.FormatUtc(cancelled.CancelledAtUtc!.Value)</summary>
+            <p>Reason: @cancelled.Reason</p>
+            <partial name="_Assessment" model="cancelled.Assessment" />
+            <p>Waiver version: @cancelled.EstimateVersion</p>
+            <a asp-action="Waiver" asp-route-id="@Model.Id" asp-route-checkInId="@cancelled.Id">Download original signed waiver</a>
+        </details>
+    }
+}
+<a asp-controller="GroomingPlanning" asp-action="History" asp-route-id="@Model.EstimateId">Back to price estimate history</a>

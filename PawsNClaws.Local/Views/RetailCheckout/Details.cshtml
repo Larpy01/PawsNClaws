@@ -1,0 +1,99 @@
+@using PawsNClaws.Application.Features.Inventory
+@using PawsNClaws.Domain.Enums
+@using Microsoft.AspNetCore.Authorization
+@using PawsNClaws.Infastructure.Identity.Local
+@inject IAuthorizationService AuthorizationService
+@model RetailSaleView
+@{
+    ViewData["Title"] = "Retail sale";
+    var isOnline = Model.PaymentMethod == RetailPaymentMethod.Online;
+}
+<h1>Retail sale</h1>
+@if (Model.VoidedAtUtc is DateTime refundedAt)
+{
+    <div class="alert alert-info">
+        Refunded ₱@Model.Total.ToString("N2") on @PhilippineDateTime.FormatUtc(refundedAt).
+        <p class="mb-0">Reason: @Model.VoidReason</p>
+        <p class="mb-0">@(Model.ReturnsQuarantined ? "Returned items were quarantined." : "Returned items were restored to their original lots.")</p>
+    </div>
+}
+<div asp-validation-summary="All" class="text-danger" role="alert"></div>
+<p>Recorded @PhilippineDateTime.FormatUtc(Model.RecordedAtUtc)</p>
+<p>Sale reference <span class="text-break">@Model.Id</span></p>
+<div class="table-responsive">
+    <table class="table">
+        <thead><tr><th scope="col">Product</th><th scope="col">Quantity</th><th scope="col">Unit price</th><th scope="col">Amount</th></tr></thead>
+        <tbody>
+        @foreach (var line in Model.Lines)
+        {
+            <tr><td>@line.Name (@line.Sku)</td><td>@line.Quantity</td><td>₱@line.UnitPrice.ToString("N2")</td><td>₱@line.Total.ToString("N2")</td></tr>
+        }
+        </tbody>
+    </table>
+</div>
+<dl>
+    @if (Model.VatRate > 0m && Model.VatAmount is decimal vat)
+    {
+        <dt>Sales excluding VAT</dt><dd>PHP @((Model.Total - vat).ToString("N2"))</dd>
+        <dt>VAT (@Model.VatRate.Value.ToString("0%"))</dt><dd>PHP @vat.ToString("N2")</dd>
+    }
+    else if (Model.VatRate == 0m)
+    {
+        <dt>Tax treatment</dt><dd>Non-VAT sale</dd>
+    }
+    else
+    {
+        <dt>Tax treatment</dt><dd>VAT details unavailable for this sale</dd>
+    }
+    <dt>Total</dt><dd>₱@Model.Total.ToString("N2")</dd>
+    <dt>Payment method</dt><dd>@(isOnline ? "GCash / Online payment" : "Cash")</dd>
+    @if (isOnline)
+    {
+        <dt>Online payment reference number</dt><dd class="text-break">@Model.OnlinePaymentReference</dd>
+        <dt>Online amount received</dt><dd>₱@Model.Tendered.ToString("N2")</dd>
+    }
+    else
+    {
+        <dt>Cash received</dt><dd>₱@Model.Tendered.ToString("N2")</dd>
+        <dt>Change</dt><dd>₱@Model.Change.ToString("N2")</dd>
+    }
+</dl>
+@if (!Model.VoidedAtUtc.HasValue &&
+    (User.IsInRole(LocalRoles.Manager) || User.IsInRole(LocalRoles.Admin)) &&
+    (await AuthorizationService.AuthorizeAsync(User, Permissions.PosVoidSale)).Succeeded)
+{
+    <details class="mb-3">
+        <summary>@(isOnline ? "Record full online refund" : "Record full cash refund")</summary>
+        <ul class="mt-2">
+            @foreach (var lot in Model.Lots)
+            {
+                <li>@lot.Product (@lot.Sku), @(lot.Lot is null ? $"Stock batch {lot.BatchId}" : $"Lot {lot.Lot}"), @lot.Quantity.ToString("0.###") units
+                    @if (lot.Expiry.HasValue) { <span>Expires @lot.Expiry.Value.ToString("MM/dd/yyyy")</span> }
+                </li>
+            }
+        </ul>
+        <form asp-action="Void" asp-route-id="@Model.Id" method="post" class="mt-3">
+            <p>Confirm the items against the original lots above before recording the refund. The refund amount is ₱@Model.Total.ToString("N2").</p>
+            <label class="d-block mb-3">Refund reason
+                <textarea name="reason" class="form-control" maxlength="500" required>@ViewData["RefundReason"]</textarea>
+            </label>
+            <label class="form-check mb-2">
+                <input type="checkbox" class="form-check-input" name="stockVerified" value="true" required />
+                <span class="form-check-label">All items are back and match the original lots.</span>
+            </label>
+            <label class="form-check mb-2">
+                <input type="checkbox" class="form-check-input" name="quarantineReturned" value="true" checked="@(ViewData["QuarantineReturned"] is true)" />
+                <span class="form-check-label">Quarantine returned items if any are unsuitable for resale.</span>
+            </label>
+            <label class="form-check mb-3">
+                <input type="checkbox" class="form-check-input" name="@(isOnline ? "onlineReturned" : "cashReturned")" value="true" required />
+                <span class="form-check-label">@(isOnline
+                    ? "I sent the full refund online to the customer."
+                    : "I returned the full cash amount to the customer.")</span>
+            </label>
+            <button class="btn btn-outline-danger">Record refund and restore stock</button>
+        </form>
+    </details>
+}
+<a asp-action="Sales" class="btn btn-outline-primary">Back to sale history</a>
+<a asp-action="Index" class="btn btn-primary">New retail sale</a>

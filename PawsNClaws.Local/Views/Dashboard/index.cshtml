@@ -31,6 +31,10 @@
         </form>
     </div>
 
+    @if (User.IsInRole(LocalRoles.Groomer))
+    {
+        <p><a asp-controller="GroomerTasks" asp-action="Index" class="btn btn-primary">My grooming tasks</a></p>
+    }
     <div class="row g-3">
         @if ((await AuthorizationService.AuthorizeAsync(User, Permissions.GroomingCatalogManage)).Succeeded)
         {
@@ -40,6 +44,7 @@
                         <h5>Grooming Services</h5>
                         <p class="text-muted">Set up services, durations, and pet eligibility.</p>
                         <a asp-controller="GroomingCatalog" asp-action="Index" class="btn btn-primary">Open grooming catalog</a>
+                        <a asp-controller="OffsiteBookings" asp-action="Index" class="btn btn-outline-primary">Open off-site requests</a>
                     </div>
                 </div>
             </div>
@@ -52,6 +57,8 @@
                         <h5>Customers &amp; Pets</h5>
                         <p class="text-muted">Find an owner, register a walk-in, or update a pet profile.</p>
                         <a asp-controller="Customers" asp-action="Index" class="btn btn-primary">Open customer records</a>
+                        <a asp-controller="WalkInQueue" asp-action="Index" class="btn btn-outline-primary">Open walk-in queue</a>
+                        <a asp-controller="GroomingAppointments" asp-action="Index" class="btn btn-outline-primary">Open grooming appointments</a>
                     </div>
                 </div>
             </div>
@@ -63,12 +70,10 @@
                 <div class="card h-100">
                     <div class="card-body">
                         <h5>Point of Sale</h5>
-                        <p class="text-muted">
-                            Process customer purchases.
-                        </p>
-                        <span class="badge bg-info text-dark">
-                            Coming Soon
-                        </span>
+                        <p class="text-muted">Review grooming bills and record cash payments.</p>
+                        <a asp-controller="VisitBilling" asp-action="Index" class="btn btn-primary">Open grooming bills</a>
+                        <a asp-controller="RetailCheckout" asp-action="Index" class="btn btn-outline-primary">Open retail checkout</a>
+                        <a asp-controller="CashDrawer" asp-action="Index" class="btn btn-outline-primary">Open cash drawer</a>
                     </div>
                 </div>
             </div>
@@ -84,6 +89,10 @@
                             Receive stock, review batches, and track stock movements.
                         </p>
                         <a asp-controller="Inventory" asp-action="Index" class="btn btn-primary">Open Inventory</a>
+                        @if (User.IsInRole(LocalRoles.Admin) || User.IsInRole(LocalRoles.Manager))
+                        {
+                            <a asp-controller="Inventory" asp-action="Alerts" class="btn btn-outline-primary">Inventory alerts</a>
+                        }
                     </div>
                 </div>
             </div>
@@ -102,18 +111,13 @@
             </div>
         }
 
-        @if (User.HasClaim("Permission", Permissions.ReportsView))
+        @if ((User.IsInRole(LocalRoles.Admin) || User.IsInRole(LocalRoles.Manager)) && (await AuthorizationService.AuthorizeAsync(User, Permissions.ReportsView)).Succeeded)
         {
             <div class="col-md-4">
                 <div class="card h-100">
                     <div class="card-body">
                         <h5>Reports</h5>
-                        <p class="text-muted">
-                            View business performance.
-                        </p>
-                        <span class="badge bg-info text-dark">
-                            Coming Soon
-                        </span>
+                        <a asp-controller="OperationsReports" asp-action="Index" class="btn btn-primary">Open operations report</a>
                     </div>
                 </div>
             </div>

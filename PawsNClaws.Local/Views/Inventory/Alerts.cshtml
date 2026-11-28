@@ -1,0 +1,88 @@
+@model PawsNClaws.Application.Features.Inventory.InventoryAlerts
+@using PawsNClaws.Infastructure.Features.Inventory
+@using PawsNClaws.Infastructure.Identity.Local
+@{
+    ViewData["Title"] = "Inventory alerts";
+    var canAdjust = InventoryAccess.Has(User, Permissions.InventoryAdjust);
+}
+<h1>Inventory alerts</h1>
+<p><a asp-action="Index">Back to inventory</a></p>
+<p>As of @Model.AsOf.ToString("MMM d, yyyy") (Philippine time)</p>
+
+<section class="mb-4" aria-labelledby="low-stock">
+    <h2 id="low-stock" class="h4">Low stock (@Model.LowStock.Count)</h2>
+    <p>Active products are flagged when usable stock reaches their reorder level. Expired and quarantined units are excluded from usable stock. A reorder level of zero disables the alert.</p>
+    @if (Model.LowStock.Count == 0)
+    {
+        <p>No products are at or below their reorder level.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr><th scope="col">SKU</th><th scope="col">Product</th><th scope="col">Unit</th>
+                        <th scope="col" class="text-end">On hand</th><th scope="col" class="text-end">Usable</th>
+                        <th scope="col" class="text-end">Reorder level</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.LowStock)
+                {
+                    <tr>
+                        <td>@item.Sku</td>
+                        <th scope="row" class="fw-normal">
+                            @if (canAdjust) { <a asp-action="Catalog" asp-route-id="@item.ProductId">@item.Name</a> }
+                            else { @item.Name }
+                        </th>
+                        <td>@item.Unit</td><td class="text-end">@item.OnHand.ToString("0.###")</td>
+                        <td class="text-end">@item.Usable.ToString("0.###")</td>
+                        <td class="text-end">@item.ReorderLevel.ToString("0.###")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@foreach (var group in new[]
+{
+    (Id: "expired", Title: "Expired batches", Empty: "No expired batches remain on hand.", Rows: Model.Expired),
+    (Id: "expiring", Title: "Expiring soon", Empty: "No batches on hand expire within this window.", Rows: Model.ExpiringSoon)
+})
+{
+    <section class="mb-4" aria-labelledby="@group.Id">
+        <h2 id="@group.Id" class="h4">@group.Title (@group.Rows.Count)</h2>
+        @if (group.Id == "expiring")
+        {
+            <p>Batches on hand that expire today through @Model.ExpiringThrough.ToString("MMM d, yyyy").</p>
+        }
+        @if (group.Rows.Count == 0)
+        {
+            <p>@group.Empty</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th scope="col">SKU</th><th scope="col">Product</th><th scope="col">Lot</th>
+                            <th scope="col">Expiry date</th><th scope="col">Unit</th>
+                            <th scope="col" class="text-end">On hand</th><th scope="col" class="text-end">Quarantined</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var batch in group.Rows)
+                    {
+                        <tr>
+                            <td>@batch.Sku</td><th scope="row" class="fw-normal">@batch.Name</th><td>@(batch.Lot ?? "—")</td>
+                            <td>@batch.Expiry.ToString("yyyy-MM-dd")</td><td>@batch.Unit</td>
+                            <td class="text-end">@batch.OnHand.ToString("0.###")</td>
+                            <td class="text-end">@batch.Quarantined.ToString("0.###")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}

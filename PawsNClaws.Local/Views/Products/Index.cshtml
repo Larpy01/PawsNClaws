@@ -2,6 +2,7 @@
 @using PawsNClaws.Infastructure.Identity.Local
 @using Microsoft.AspNetCore.Authorization
 @inject IAuthorizationService AuthorizationService
+@inject PawsNClaws.Application.Features.Products.RetailTax RetailTax
 
 @{
     ViewData["Title"] = "Products";
@@ -50,7 +51,7 @@
                     <tr>
                         <th>SKU</th>
                         <th>Product Name</th>
-                        <th>Price</th>
+                        <th>@RetailTax.PriceLabel</th>
                         <th>Status</th>
                         <th>Created</th>
                         <th class="text-end">Actions</th>

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using PawsNClaws.Application.Features.Employees.Interfaces;
 using PawsNClaws.Infastructure.Identity.Local;
@@ -6,6 +7,31 @@ namespace PawsNClaws.IntegrationTests;
 
 public sealed class EmployeeManagementTests(LocalAppFactory app) : IClassFixture<LocalAppFactory>
 {
+    [Fact]
+    public async Task Employee_table_excludes_administrators_even_when_they_have_a_staff_role()
+    {
+        var viewer = await app.CreateEmployeeAsync(LocalRoles.Admin);
+        var otherAdmin = await app.CreateEmployeeAsync(LocalRoles.Admin);
+        var superAdmin = await app.CreateEmployeeAsync(LocalRoles.SuperAdmin);
+        var cashier = await app.CreateEmployeeAsync(LocalRoles.Cashier);
+        var inactiveGroomer = await app.CreateEmployeeAsync(LocalRoles.Groomer, isActive: false);
+        await using var scope = app.Services.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<LocalApplicationUser>>();
+        var mixedRoleAccount = await users.FindByIdAsync(otherAdmin.Id.ToString());
+        Assert.NotNull(mixedRoleAccount);
+        TestEmployee.AssertSucceeded(await users.AddToRoleAsync(mixedRoleAccount, LocalRoles.Manager));
+
+        using var client = app.CreateBrowser();
+        using var login = await LocalAppFactory.SignInAsync(client, viewer);
+        var html = await client.GetStringAsync("/Employees", TestContext.Current.CancellationToken);
+
+        Assert.Contains(cashier.Email, html);
+        Assert.Contains(inactiveGroomer.Email, html);
+        Assert.DoesNotContain(viewer.Email, html);
+        Assert.DoesNotContain(otherAdmin.Email, html);
+        Assert.DoesNotContain(superAdmin.Email, html);
+    }
+
     [Fact]
     public async Task An_admin_cannot_change_their_own_role_or_active_status()
     {

@@ -1,0 +1,71 @@
+@using PawsNClaws.Application.Features.Grooming
+@model GroomingQuoteForm
+@{
+    ViewData["Title"] = "Grooming price estimate";
+    var options = (IReadOnlyList<PlanningOption>)ViewData["Options"]!;
+    var pets = (IReadOnlyList<PlanningOption>)ViewData["Pets"]!;
+    var services = (IReadOnlyList<PlanningOption>)ViewData["Services"]!;
+}
+<h1>Grooming price estimate</h1>
+<form method="post" class="col-lg-7">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <input asp-for="RequestId" type="hidden" />
+    <input asp-for="Revision" type="hidden" />
+    <div class="mb-3">
+        <label asp-for="PetId" class="form-label"></label>
+        <select asp-for="PetId" class="form-select">
+            <option value="">Choose a customer and pet</option>
+            @foreach (var option in pets)
+            {
+                <option value="@option.Id">@option.Label@(!option.Available ? " (unavailable)" : "")</option>
+            }
+        </select>
+        <span asp-validation-for="PetId" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="TargetId" class="form-label"></label>
+        <select asp-for="TargetId" class="form-select">
+            <option value="">Choose a service or package</option>
+            @foreach (var option in options)
+            {
+                <option value="@option.Id" disabled="@(!option.Available)">@option.Label@(!option.Available ? " (unavailable)" : "")</option>
+            }
+        </select>
+        <span asp-validation-for="TargetId" class="text-danger"></span>
+    </div>
+    <fieldset class="mb-3">
+        <legend class="form-label fs-6">Optional add-ons</legend>
+        <p class="form-text">Check any extra services you want to include.</p>
+        @foreach (var option in services)
+        {
+            <label class="form-check">
+                <input type="checkbox" class="form-check-input" name="AddOnIds" value="@option.Id"
+                       checked="@(Model.AddOnIds?.Contains(option.Id) == true)" disabled="@(!option.Available)" />
+                @option.Label@(!option.Available ? " (unavailable)" : "")
+            </label>
+        }
+    </fieldset>
+    <div class="mb-3">
+        <label asp-for="Condition" class="form-label"></label>
+        <input asp-for="Condition" class="form-control" aria-describedby="coat-help" />
+        <div id="coat-help" class="form-text">If the coat affects the price, use the wording in the price rule, such as “Matted”. Otherwise, leave it blank.</div>
+    </div>
+    <div class="mb-3">
+        <label asp-for="OverrideTotal" class="form-label"></label>
+        <input asp-for="OverrideTotal" class="form-control" type="number" min="0" step="0.01" aria-describedby="total-help" />
+        <div id="total-help" class="form-text">Leave blank to use the calculated total. Enter the new full amount to give a different price estimate.</div>
+    </div>
+    <div class="mb-3">
+        <label asp-for="OverrideReason" class="form-label"></label>
+        <input asp-for="OverrideReason" class="form-control" aria-describedby="reason-help"
+               disabled="@(!Model.OverrideTotal.HasValue)" required="@Model.OverrideTotal.HasValue" />
+        <div id="reason-help" class="form-text">Required when you enter a custom total. For example, “Manager-approved discount”.</div>
+    </div>
+    <button type="submit" class="btn btn-primary">Save price estimate</button>
+    <a asp-action="Index" class="btn btn-link">Cancel</a>
+</form>
+
+@section Scripts {
+    <script src="~/js/grooming-quote.js" asp-append-version="true"></script>
+}

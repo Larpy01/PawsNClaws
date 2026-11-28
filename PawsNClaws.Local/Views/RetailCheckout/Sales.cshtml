@@ -1,0 +1,31 @@
+@using PawsNClaws.Application.Features.Inventory
+@using PawsNClaws.Domain.Enums
+@model IReadOnlyList<RetailSaleSummary>
+@{
+    ViewData["Title"] = "Retail sale history";
+    var page = (int)ViewData["Page"]!;
+}
+<h1>Retail sale history</h1>
+<p><a asp-action="Index">Back to checkout</a></p>
+@if (Model.Count == 0) { <p>No retail sales on this page.</p> }
+else
+{
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th scope="col">Sale reference</th><th scope="col">Recorded</th><th scope="col">Total</th><th scope="col">Payment</th><th scope="col">Status</th></tr></thead>
+            <tbody>
+            @foreach (var sale in Model.Take(25))
+            {
+                <tr><td class="text-break"><a asp-action="Details" asp-route-id="@sale.Id">@sale.Id</a></td>
+                    <td>@PhilippineDateTime.FormatUtc(sale.RecordedAtUtc)</td><td>₱@sale.Total.ToString("N2")</td>
+                    <td>@(sale.PaymentMethod == RetailPaymentMethod.Online ? "GCash / Online" : "Cash")</td>
+                    <td>@(sale.VoidedAtUtc.HasValue ? "Refunded" : "Completed")</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+<nav aria-label="Sale history pages">
+    @if (page > 1) { <a asp-action="Sales" asp-route-page="@(page - 1)">Previous page</a> }
+    @if (Model.Count > 25 && page < 10_000) { <a asp-action="Sales" asp-route-page="@(page + 1)">Next page</a> }
+</nav>

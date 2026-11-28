@@ -1,0 +1,72 @@
+@using System.Globalization
+@using PawsNClaws.Application.Features.Inventory
+@model IReadOnlyList<RetailProduct>
+@inject PawsNClaws.Application.Features.Products.RetailTax RetailTax
+@{
+    ViewData["Title"] = "Retail checkout";
+    var lines = (RetailLineInput[])ViewData["Lines"]!;
+    var tendered = ViewData["Tendered"] as decimal?;
+    var isOnline = ViewData["OnlinePayment"] is true;
+}
+<h1>Retail checkout</h1>
+<p><a asp-action="Sales">Retail sale history</a> · <a asp-controller="CashDrawer" asp-action="Index">Cash drawer</a></p>
+<div asp-validation-summary="All" class="text-danger" role="alert"></div>
+@if (Model.Count == 0) { <p>No active retail products are available.</p> }
+else
+{
+    <form asp-action="Index" method="post" id="retail-checkout"
+          data-vat-percent="@((RetailTax.Rate * 100).ToString("0", CultureInfo.InvariantCulture))">
+        <p>@RetailTax.PriceLabel (PHP)</p>
+        <input type="hidden" name="operationId" value="@ViewData["OperationId"]" />
+        <input type="hidden" name="expectedTotal" />
+        @for (var i = 0; i < 10; i++)
+        {
+            var line = lines.ElementAtOrDefault(i);
+            <fieldset class="row g-2 align-items-end mb-3" data-sale-line>
+                <legend class="fs-6 mb-0">Item @(i + 1)</legend>
+                <div class="col-sm-8">
+                    <label class="form-label" for="product-@i">Product</label>
+                    <select id="product-@i" name="lines[@i].ProductId" class="form-select">
+                        <option value="">Choose a product</option>
+                        @foreach (var product in Model)
+                        {
+                            <option value="@product.Id" data-price="@product.Price.ToString(CultureInfo.InvariantCulture)"
+                                    selected="@(line?.ProductId == product.Id)">
+                                @product.Name (@product.Sku) · ₱@product.Price.ToString("N2") · @product.Usable.ToString("0") available
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label" for="quantity-@i">Quantity</label>
+                    <input id="quantity-@i" name="lines[@i].Quantity" type="number" min="1" step="1" value="@line?.Quantity" class="form-control" />
+                </div>
+            </fieldset>
+        }
+        <button type="button" class="btn btn-outline-primary mb-3" id="retail-add-line" hidden>Add another item</button>
+        <p id="retail-total" role="status" hidden></p>
+        <fieldset class="mb-3">
+            <legend class="fs-6">Payment method</legend>
+            <div class="btn-group">
+                <input class="btn-check" type="radio" name="paymentMethod" id="retail-cash" value="Cash" checked="@(!isOnline)" />
+                <label class="btn btn-outline-primary" for="retail-cash">Cash</label>
+                <input class="btn-check" type="radio" name="paymentMethod" id="retail-online" value="Online" checked="@isOnline" />
+                <label class="btn btn-outline-primary" for="retail-online">GCash / Online payment</label>
+            </div>
+        </fieldset>
+        <div class="mb-3" id="retail-online-details">
+            <label class="form-label" for="retail-online-reference">Online payment reference number</label>
+            <input class="form-control" id="retail-online-reference" name="onlinePaymentReference" type="text"
+                   maxlength="80" value="@ViewData["OnlinePaymentReference"]" autocomplete="off"
+                   aria-describedby="retail-online-help" />
+            <div class="form-text" id="retail-online-help">Verify the full payment in the receiving account, then enter its reference.</div>
+        </div>
+        <label class="form-label d-block" for="retail-tendered">
+            <span id="retail-tendered-label">Amount received (PHP)</span>
+            <input id="retail-tendered" name="tendered" type="number" min="0" step="0.01"
+                   value="@tendered?.ToString(CultureInfo.InvariantCulture)" class="form-control" required />
+        </label>
+        <button class="btn btn-primary" id="retail-submit">Complete sale</button>
+    </form>
+}
+<script src="~/js/retail-checkout.js" asp-append-version="true" defer></script>

@@ -1,0 +1,40 @@
+@using PawsNClaws.Application.Features.Grooming
+@model GroomingCheckInForm
+@{
+    var statuses = Html.GetEnumSelectList<AssessmentStatus>().ToDictionary(x => x.Value, x => x.Text);
+}
+<dl>
+    <dt>Skin</dt><dd>@statuses[((int)Model.Skin).ToString()]</dd>
+    <dt>Coat</dt><dd>@statuses[((int)Model.Coat).ToString()]</dd>
+    <dt>Ears</dt><dd>@statuses[((int)Model.Ears).ToString()]</dd>
+    <dt>Nails</dt><dd>@statuses[((int)Model.Nails).ToString()]</dd>
+    <dt>Teeth</dt><dd>@statuses[((int)Model.Teeth).ToString()]</dd>
+    <dt>Gums</dt><dd>@statuses[((int)Model.Gums).ToString()]</dd>
+    <dt>Anal glands</dt><dd>@statuses[((int)Model.AnalGlands).ToString()]</dd>
+    <dt>Ticks and fleas</dt><dd>@statuses[((int)Model.TicksAndFleas).ToString()]</dd>
+    <dt>Findings</dt><dd>@(Model.Findings ?? "None recorded")</dd>
+    <dt>Owner's instructions</dt><dd>@(Model.OwnerInstructions ?? "None recorded")</dd>
+    <dt>Products or solutions used</dt>
+    <dd>
+        @if (Model.ProductsUsed is { Count: > 0 } products)
+        {
+            <ul>
+                @foreach (var product in products)
+                {
+                    <li>@product.Name</li>
+                }
+            </ul>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.SolutionsUsed))
+        {
+            <span>@Model.SolutionsUsed</span>
+        }
+        else if (Model.ProductsUsed is not { Count: > 0 })
+        {
+            <span>None recorded</span>
+        }
+    </dd>
+    <dt>Staff notes</dt><dd>@(Model.StaffNotes ?? "None recorded")</dd>
+    <dt>Waiver signed by</dt><dd>@Model.Signer</dd>
+    <dt>Date signed</dt><dd>@Model.SignedOn?.ToString("MM/dd/yyyy")</dd>
+</dl>

@@ -1,6 +1,10 @@
 @model PawsNClaws.Application.Features.Customers.CustomerProfile
+@using Microsoft.AspNetCore.Authorization
+@using PawsNClaws.Infastructure.Identity.Local
+@inject IAuthorizationService AuthorizationService
 @{
     ViewData["Title"] = "Customer profile";
+    var canManageGrooming = (await AuthorizationService.AuthorizeAsync(User, Permissions.GroomingCatalogManage)).Succeeded;
 }
 <a asp-action="Index">Customers &amp; Pets</a>
 <h1>@Model.Details.FirstName @Model.Details.LastName</h1>
@@ -35,5 +39,13 @@
             <dt>Special Instructions</dt><dd>@(pet.Details.SpecialInstructions ?? "Unknown")</dd>
         </dl>
         <a href="@Url.Content($"~/Customers/{Model.Id}/Pets/{pet.Id}/Edit")">Edit @pet.Details.Name</a>
+        <form asp-controller="WalkInQueue" asp-action="Add" method="post" class="my-2">
+            <input type="hidden" name="petId" value="@pet.Id" />
+            <button class="btn btn-outline-primary">Add @pet.Details.Name to walk-in queue</button>
+        </form>
+        @if (canManageGrooming)
+        {
+            <a asp-controller="GroomingPlanning" asp-action="PetQuotes" asp-route-id="@pet.Id">Grooming price estimates for @pet.Details.Name</a>
+        }
     </section>
 }

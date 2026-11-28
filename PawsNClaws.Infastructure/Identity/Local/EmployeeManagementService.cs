@@ -41,7 +41,8 @@ public sealed class EmployeeManagementService
         {
             var roles = await _users.GetRolesAsync(user);
 
-            result.Add(ToDto(user, roles));
+            if (!HasPrivilegedRole(roles))
+                result.Add(ToDto(user, roles));
         }
 
         return result;
@@ -226,8 +227,7 @@ public sealed class EmployeeManagementService
         var employeeRoles = await _users.GetRolesAsync(employee);
 
         // Protect privileged accounts from general status management.
-        if (employeeRoles.Contains(LocalRoles.SuperAdmin) ||
-            employeeRoles.Contains(LocalRoles.Admin))
+        if (HasPrivilegedRole(employeeRoles))
         {
             return (false,
                 ["Administrator accounts cannot be modified here."]);
@@ -333,8 +333,7 @@ public sealed class EmployeeManagementService
 
         var currentRoles = await _users.GetRolesAsync(employee);
 
-        if (currentRoles.Contains(LocalRoles.SuperAdmin) ||
-            currentRoles.Contains(LocalRoles.Admin))
+        if (HasPrivilegedRole(currentRoles))
         {
             return (false,
                 ["Privileged administrator accounts cannot be modified here."]);
@@ -389,6 +388,9 @@ public sealed class EmployeeManagementService
 
         return (true, Array.Empty<string>());
     }
+
+    private static bool HasPrivilegedRole(IList<string> roles) =>
+        roles.Contains(LocalRoles.Admin) || roles.Contains(LocalRoles.SuperAdmin);
 
     private static bool CanManageEmployees(IList<string> roles) =>
         roles.Contains(LocalRoles.Admin) && !roles.Contains(LocalRoles.SuperAdmin);

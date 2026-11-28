@@ -1,0 +1,39 @@
+@using PawsNClaws.Application.Features.Notifications
+@using PawsNClaws.Domain.Entities
+@model IReadOnlyList<SmsQueueRow>
+@{
+    ViewData["Title"] = "SMS delivery queue";
+}
+<h1>SMS delivery queue</h1>
+<p><a asp-action="Index">Back to operations report</a></p>
+<p>Recent messages. For items marked Needs review, check the TextBee dashboard before contacting the customer again.</p>
+@if (Model.Count == 0) { <p>No SMS notifications have been queued.</p> }
+else
+{
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th scope="col">Queued</th><th scope="col">Notification</th><th scope="col">Status</th>
+                <th scope="col">Last attempt</th><th scope="col">TextBee batch</th></tr></thead>
+            <tbody>
+            @foreach (var row in Model)
+            {
+                <tr>
+                    <td>@PhilippineDateTime.FormatUtc(row.CreatedAtUtc)</td>
+                    <td>@(row.Kind == SmsNotificationKind.AppointmentConfirmed ? "Appointment confirmed" : "Ready for pickup")</td>
+                    <td>@(row.Status switch
+                        {
+                            SmsNotificationStatus.Accepted => "Accepted by TextBee",
+                            SmsNotificationStatus.NeedsReview => "Needs review",
+                            SmsNotificationStatus.Pending when row.Outcome == "network_unavailable" => "Waiting for connection",
+                            SmsNotificationStatus.Pending when row.Outcome == "rate_limited" => "Waiting for TextBee limit",
+                            SmsNotificationStatus.Skipped => "Contact or event unavailable",
+                            _ => row.Status.ToString()
+                        })</td>
+                    <td>@(row.LastAttemptUtc is DateTime lastAttempt ? PhilippineDateTime.FormatUtc(lastAttempt) : "—")</td>
+                    <td>@(row.ProviderBatchId ?? "—")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

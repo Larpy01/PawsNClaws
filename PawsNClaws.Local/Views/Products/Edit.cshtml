@@ -1,5 +1,6 @@
 ﻿@model PawsNClaws.Local.Models.Products.ProductFormModel
 
+@inject PawsNClaws.Application.Features.Products.RetailTax RetailTax
 @{
     ViewData["Title"] = "Edit Product";
 }
@@ -23,6 +24,8 @@
             <div asp-validation-summary="ModelOnly"
                  class="text-danger mb-3"></div>
 
+            <partial name="_RetailPriceReferences" />
+
             <div class="mb-3">
                 <label asp-for="SKU" class="form-label"></label>
                 <input asp-for="SKU"
@@ -42,7 +45,7 @@
             </div>
 
             <div class="mb-3">
-                <label asp-for="Price" class="form-label"></label>
+                <label asp-for="Price" class="form-label">@RetailTax.PriceLabel (PHP)</label>
                 <input asp-for="Price"
                        type="number"
                        step="0.01"
@@ -76,5 +79,5 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/retail-price-references.js" asp-append-version="true" defer></script>
 }
-    

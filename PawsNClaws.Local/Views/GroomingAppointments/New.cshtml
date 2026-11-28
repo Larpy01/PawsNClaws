@@ -1,0 +1,38 @@
+@using System.Globalization
+@model NewAppointmentPage
+@{ ViewData["Title"] = "Schedule grooming appointment"; }
+<h1>Schedule an in-shop grooming appointment</h1>
+<p><strong>@Model.Estimate.Snapshot.Pet</strong> · @Model.Estimate.Snapshot.Owner · Price estimate version @Model.Estimate.Number</p>
+<ul>
+@foreach (var line in Model.Estimate.Snapshot.Lines)
+{
+    <li>@line.Name</li>
+}
+</ul>
+<div asp-validation-summary="All" class="text-danger" role="alert"></div>
+@if (Model.Groomers.Count == 0)
+{
+    <p>No active groomers are available to assign.</p>
+}
+else
+{
+    <form asp-action="New" asp-route-estimateId="@Model.Estimate.Id" method="post" class="mb-3">
+        <input type="hidden" name="version" value="@Model.Estimate.Number" />
+        <label for="groomerId" class="form-label">Groomer</label>
+        <select id="groomerId" name="groomerId" class="form-select mb-3" required>
+            <option value="">Choose a groomer</option>
+            @foreach (var groomer in Model.Groomers)
+            {
+                <option value="@groomer.Id" selected="@(groomer.Id == Model.GroomerId)">@groomer.Name</option>
+            }
+        </select>
+        <label for="startsAt" class="form-label">Start date and time (Philippine time)</label>
+        <input type="datetime-local" id="startsAt" name="startsAt" value="@Model.StartsAt" class="form-control mb-3" required />
+        <label for="durationMinutes" class="form-label">Time to reserve (minutes)</label>
+        <input type="number" id="durationMinutes" name="durationMinutes" value="@Model.DurationMinutes" min="1" max="1440"
+               aria-describedby="durationHelp" class="form-control" required />
+        <div class="form-text mb-3" id="durationHelp">Allow time for all services on this estimate. The scheduler checks shop hours and groomer availability.</div>
+        <button type="submit" class="btn btn-primary">Schedule appointment</button>
+    </form>
+}
+<p><a asp-controller="GroomingPlanning" asp-action="History" asp-route-id="@Model.Estimate.Id">Back to price estimate</a></p>

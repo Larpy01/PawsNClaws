@@ -15,6 +15,7 @@ public sealed class StockReceipt
     public decimal Accepted { get; set; }
     public decimal Rejected { get; set; }
     public decimal? UnitCost { get; set; }
+    public decimal? SupplierInvoiceVat { get; set; }
     public string? RejectionReason { get; set; }
     public DateTime ReceivedAtUtc { get; set; }
     public ICollection<StockReceiptEvidence> Evidence { get; set; } = new List<StockReceiptEvidence>();

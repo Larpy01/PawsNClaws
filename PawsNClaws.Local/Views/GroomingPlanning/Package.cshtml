@@ -1,0 +1,36 @@
+@using PawsNClaws.Application.Features.Grooming
+@model GroomingPackageForm
+@{
+    ViewData["Title"] = "Service package";
+    var options = (IReadOnlyList<PlanningOption>)ViewData["Options"]!;
+}
+<h1>Service package</h1>
+<form method="post" class="col-lg-7">
+    @Html.AntiForgeryToken()
+    <input asp-for="Version" type="hidden" />
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label"></label>
+        <input asp-for="Description" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="ServiceIds" class="form-label"></label>
+        <select asp-for="ServiceIds" class="form-select" multiple size="7">
+            @foreach (var option in options)
+            {
+                <option value="@option.Id">@option.Label@(!option.Available ? " (unavailable)" : "")</option>
+            }
+        </select>
+    </div>
+    <p class="form-text">Select the services included in one visit.</p>
+    <div class="form-check mb-3">
+        <input asp-for="IsActive" class="form-check-input" />
+        <label asp-for="IsActive" class="form-check-label">Active</label>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a asp-action="Index" class="btn btn-link">Cancel</a>
+</form>

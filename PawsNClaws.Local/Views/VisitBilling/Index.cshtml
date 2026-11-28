@@ -1,0 +1,20 @@
+@using PawsNClaws.Application.Features.Grooming
+@model IReadOnlyList<VisitBillSummary>
+@{
+    ViewData["Title"] = "Grooming bills";
+    var page = ViewData["Page"] is int pageNumber ? pageNumber : 1;
+}
+<h1>Grooming bills</h1>
+@if (TempData["BillingError"] is string error) { <p class="alert alert-danger" role="alert">@error</p> }
+@if (Model.Count == 0) { <p>No bills on this page. Managers can issue a bill from a checked-in grooming visit.</p> }
+@foreach (var bill in Model.Take(25))
+{
+    <section class="card card-body mb-3">
+        <h2 class="h5"><a asp-action="Details" asp-route-visitId="@bill.VisitId">@bill.Pet · @bill.Owner</a></h2>
+        <p class="mb-0">Issued @PhilippineDateTime.FormatUtc(bill.IssuedAtUtc) · @(bill.Balance == 0 ? "Settled" : $"Balance ₱{bill.Balance:N2}")</p>
+    </section>
+}
+<nav aria-label="Bill pages">
+    @if (page > 1) { <a asp-action="Index" asp-route-page="@(page - 1)">Previous page</a> }
+    @if (Model.Count > 25 && page < 10_000) { <a asp-action="Index" asp-route-page="@(page + 1)">Next page</a> }
+</nav>

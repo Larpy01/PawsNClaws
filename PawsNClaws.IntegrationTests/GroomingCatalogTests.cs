@@ -61,13 +61,24 @@ public sealed class GroomingCatalogTests(LocalAppFactory app) : IClassFixture<Lo
         var index = await client.GetStringAsync("/GroomingCatalog", token);
         Assert.Contains($"href=\"{editPath}\"", index);
         Assert.Contains("45 min", index);
+        var edit = await client.GetStringAsync(editPath, token);
+        Assert.Contains("value=\"Dog\" selected=\"selected\"", edit);
+        Assert.Contains("value=\"Poodle\" selected=\"selected\"", edit);
+        Assert.Contains("value=\"Giant\"", edit);
         input["Version"] = service.Version.ToString();
         input["IsActive"] = "false";
+        input["Species"] = "";
+        input["Breed"] = "";
+        input["Size"] = "";
         using var edited = await SaveAsync(client, editPath, input);
         Assert.Equal(HttpStatusCode.Redirect, edited.StatusCode);
         using var stale = await SaveAsync(client, editPath, input);
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
-        Assert.False(await db.GroomingServices.Select(x => x.IsActive).SingleAsync(token));
+        var updated = await db.GroomingServices.AsNoTracking().SingleAsync(token);
+        Assert.False(updated.IsActive);
+        Assert.Null(updated.Species);
+        Assert.Null(updated.Breed);
+        Assert.Null(updated.Size);
     }
 
     private static async Task<HttpResponseMessage> SaveAsync(HttpClient client, string path,

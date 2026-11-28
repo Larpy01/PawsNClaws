@@ -22,19 +22,7 @@ public sealed class InventoryEvidenceStore(string root)
         }
 
         data.Position = 0;
-        using var codec = SKCodec.Create(new SKManagedStream(data, false));
-        var contentType = codec?.EncodedFormat switch
-        {
-            SKEncodedImageFormat.Jpeg => "image/jpeg",
-            SKEncodedImageFormat.Png => "image/png",
-            _ => throw new InventoryRuleException("The photo is not a valid JPEG or PNG image.")
-        };
-        if (codec!.Info.Width <= 0 || codec.Info.Height <= 0 ||
-            (long)codec.Info.Width * codec.Info.Height > 20_000_000)
-            throw new InventoryRuleException("Each photo must be 20 megapixels or smaller.");
-        using var image = new SKBitmap(codec.Info);
-        if (codec.GetPixels(image.Info, image.GetPixels()) != SKCodecResult.Success)
-            throw new InventoryRuleException("The photo is incomplete or invalid.");
+        var contentType = ValidateImage(data);
 
         Directory.CreateDirectory(_root);
         var key = Guid.NewGuid().ToString("N");
@@ -65,4 +53,22 @@ public sealed class InventoryEvidenceStore(string root)
     }
 
     internal void DeleteUncommitted(string key) => File.Delete(Path.Combine(_root, key));
+
+    internal static string ValidateImage(Stream data)
+    {
+        using var codec = SKCodec.Create(new SKManagedStream(data, false));
+        var contentType = codec?.EncodedFormat switch
+        {
+            SKEncodedImageFormat.Jpeg => "image/jpeg",
+            SKEncodedImageFormat.Png => "image/png",
+            _ => throw new InventoryRuleException("The photo is not a valid JPEG or PNG image.")
+        };
+        if (codec!.Info.Width <= 0 || codec.Info.Height <= 0 ||
+            (long)codec.Info.Width * codec.Info.Height > 20_000_000)
+            throw new InventoryRuleException("Each photo must be 20 megapixels or smaller.");
+        using var image = new SKBitmap(codec.Info);
+        if (codec.GetPixels(image.Info, image.GetPixels()) != SKCodecResult.Success)
+            throw new InventoryRuleException("The photo is incomplete or invalid.");
+        return contentType;
+    }
 }

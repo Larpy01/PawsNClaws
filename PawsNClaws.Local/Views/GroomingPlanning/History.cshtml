@@ -1,0 +1,63 @@
+@using PawsNClaws.Application.Features.Grooming
+@model IReadOnlyList<QuoteVersion>
+@{
+    ViewData["Title"] = "Price estimate history";
+}
+<h1>Price estimate history</h1>
+<a asp-action="Quote" asp-route-id="@Model[0].Id" class="btn btn-primary">Update price estimate</a>
+<a asp-action="Index" class="btn btn-link">Grooming setup and price estimates</a>
+@if (ViewData["VisitId"] is Guid visitId)
+{
+    <p class="mt-3">
+        <a asp-controller="GroomingVisits" asp-action="Details" asp-route-id="@visitId">Open grooming visit</a>
+        <span> · Started from Version @ViewData["VisitEstimateVersion"]</span>
+    </p>
+}
+
+@foreach (var quote in Model)
+{
+    var snapshot = quote.Snapshot;
+    <section class="card card-body my-3">
+        <h2 class="h4">Version @quote.Number · @snapshot.Pet</h2>
+        @if (ViewData["VisitId"] is null)
+        {
+            <p><a asp-controller="GroomingAppointments" asp-action="New" asp-route-estimateId="@quote.Id" asp-route-version="@quote.Number">Schedule appointment from Version @quote.Number</a></p>
+            <form asp-controller="GroomingVisits" asp-action="Start" method="post" class="mb-3">
+                <input type="hidden" name="estimateId" value="@quote.Id" />
+                <input type="hidden" name="version" value="@quote.Number" />
+                <button type="submit" class="btn btn-outline-primary">Start grooming visit from Version @quote.Number</button>
+            </form>
+        }
+        <p><a asp-controller="OffsiteBookings" asp-action="New" asp-route-estimateId="@quote.Id" asp-route-version="@quote.Number">Record a home-service or transport request</a></p>
+        <p>@snapshot.Owner · @PhilippineDateTime.FormatUtc(quote.CreatedAtUtc)</p>
+        <p>@snapshot.Species · @(snapshot.Breed ?? "Breed unknown") · @(snapshot.Size ?? "Size unknown") · @(snapshot.Condition ?? "Condition unspecified")</p>
+        <table class="table">
+            <thead><tr><th>Selection</th><th>Included services</th><th class="text-end">Amount</th></tr></thead>
+            <tbody>
+            @foreach (var line in snapshot.Lines)
+            {
+                <tr>
+                    <td>@line.Name</td><td>@string.Join(", ", line.Services)</td>
+                    <td class="text-end">₱@line.Amount.ToString("N2")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <p>Calculated Total: ₱@snapshot.BaseTotal.ToString("N2")</p>
+        @if (snapshot.OverrideTotal.HasValue)
+        {
+            <p><strong>Total: ₱@snapshot.Total.ToString("N2")</strong></p>
+            <p>Reason for changing the total: @snapshot.OverrideReason</p>
+        }
+        @if (snapshot.Supplies.Count != 0)
+        {
+            <h3 class="h6">Estimated supplies</h3>
+            <ul>
+            @foreach (var supply in snapshot.Supplies)
+            {
+                <li>@supply.Name · @supply.Quantity.ToString("0.###") @supply.Unit</li>
+            }
+            </ul>
+        }
+    </section>
+}

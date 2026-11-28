@@ -1,0 +1,78 @@
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using PawsNClaws.Infastructure.Identity.Local
+@using PawsNClaws.Application.Features.Grooming
+@inject IAuthorizationService AuthorizationService
+@model VisitBillDetails
+@{
+    ViewData["Title"] = "Grooming bill";
+    var canOpenVisit = (await AuthorizationService.AuthorizeAsync(User, Permissions.GroomingCatalogManage)).Succeeded;
+    var canRecord = (await AuthorizationService.AuthorizeAsync(User, Permissions.PosCreateSale)).Succeeded;
+    var suggestedAmount = ViewData["PaymentAmount"] is decimal amount ? amount : Model.Balance;
+    var tendered = ViewData["CashTendered"] as decimal?;
+}
+<h1>Grooming bill for @Model.Estimate.Pet</h1>
+<p>@Model.Estimate.Owner · Price estimate version @Model.EstimateVersion</p>
+<p>
+    <a asp-action="Index">Back to grooming bills</a>
+    <a class="ms-3" asp-controller="CashDrawer" asp-action="Index">Cash drawer</a>
+    @if (canOpenVisit) { <a class="ms-3" asp-controller="GroomingVisits" asp-action="Details" asp-route-id="@Model.VisitId">Open grooming visit</a> }
+</p>
+<div class="table-responsive">
+    <table class="table">
+        <thead><tr><th scope="col">Service or package</th><th scope="col">Amount</th></tr></thead>
+        <tbody>
+        @foreach (var line in Model.Estimate.Lines)
+        {
+            <tr><td>@line.Name</td><td>₱@line.Amount.ToString("N2")</td></tr>
+        }
+        </tbody>
+    </table>
+</div>
+@if (Model.Estimate.OverrideTotal.HasValue) { <p>Approved estimate adjustment: @Model.Estimate.OverrideReason</p> }
+<dl>
+    <dt>Total</dt><dd>₱@Model.Total.ToString("N2")</dd>
+    @if (Model.HomeDepositAmount > 0)
+    {
+        <dt>Verified home-service deposit</dt>
+        <dd>₱@Model.HomeDepositAmount.ToString("N2") · Reference @Model.HomeDepositReference</dd>
+    }
+    <dt>Paid</dt><dd>₱@Model.Paid.ToString("N2")</dd>
+    <dt>Balance</dt><dd>₱@Model.Balance.ToString("N2")</dd>
+</dl>
+<div asp-validation-summary="All" class="text-danger" role="alert"></div>
+@if (Model.Balance > 0 && canRecord)
+{
+    <h2 class="h5">Record cash payment</h2>
+    <form asp-action="Cash" asp-route-visitId="@Model.VisitId" method="post" class="mb-4">
+        <input type="hidden" name="revision" value="@Model.Revision" />
+        <input type="hidden" name="operationId" value="@Guid.NewGuid()" />
+        <label class="d-block mb-2">Payment amount (₱)
+            <input name="amount" class="form-control" type="number" min="0.01" step="0.01" required
+                   max="@Model.Balance.ToString(CultureInfo.InvariantCulture)"
+                   value="@suggestedAmount.ToString(CultureInfo.InvariantCulture)" />
+        </label>
+        <label class="d-block mb-2">Cash received (₱)
+            <input name="tendered" class="form-control" type="number" min="0.01" step="0.01" required
+                   value="@tendered?.ToString(CultureInfo.InvariantCulture)" />
+        </label>
+        <button class="btn btn-primary">Record payment</button>
+    </form>
+}
+@if (Model.Payments.Count > 0)
+{
+    <h2 class="h5">Recorded payments</h2>
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th scope="col">Recorded</th><th scope="col">Payment</th><th scope="col">Cash received</th><th scope="col">Change</th><th scope="col">Payment record</th></tr></thead>
+            <tbody>
+                @foreach (var payment in Model.Payments)
+                {
+                    <tr><td>@PhilippineDateTime.FormatUtc(payment.RecordedAtUtc)</td><td>₱@payment.Amount.ToString("N2")</td>
+                        <td>₱@payment.Tendered.ToString("N2")</td><td>₱@payment.Change.ToString("N2")</td>
+                        <td><a asp-action="PrintPayment" asp-route-visitId="@Model.VisitId" asp-route-paymentId="@payment.Id">Print payment record<span class="visually-hidden"> @payment.Id</span></a></td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

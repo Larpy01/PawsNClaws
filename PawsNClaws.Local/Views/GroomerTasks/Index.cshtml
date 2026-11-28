@@ -1,0 +1,40 @@
+@using PawsNClaws.Application.Features.Grooming
+@model IReadOnlyList<AssignedTask>
+@{ ViewData["Title"] = "My grooming tasks"; }
+<h1>My grooming tasks</h1>
+@if (TempData["TaskError"] is string error) { <p class="alert alert-warning" role="alert">@error</p> }
+@if (Model.Count == 0) { <p>You have no assigned grooming tasks.</p> }
+@foreach (var item in Model)
+{
+    var task = item.Task;
+    <section class="card card-body mb-3">
+        <h2 class="h5">@item.Pet · @task.Service</h2>
+        <p>@task.Status</p>
+        @if (task.AssignedGroomers.Count > 1)
+        {
+            <p>Assigned groomers: @string.Join(", ", task.AssignedGroomers.Select(x => x.Name))</p>
+        }
+        @if (task.Started.HasValue) { <p>Started @PhilippineDateTime.FormatUtc(task.Started.Value)</p> }
+        @if (task.Completed.HasValue)
+        {
+            <p>Completed @PhilippineDateTime.FormatUtc(task.Completed.Value)</p>
+            @if (!string.IsNullOrEmpty(task.Observations)) { <p>Observations: @task.Observations</p> }
+            @if (!string.IsNullOrEmpty(task.Aftercare)) { <p>Aftercare: @task.Aftercare</p> }
+        }
+        else
+        {
+            <form asp-action="Update" method="post">
+                <input type="hidden" name="id" value="@item.VisitId" />
+                <input type="hidden" name="revision" value="@item.Revision" />
+                <input type="hidden" name="index" value="@item.Index" />
+                <input type="hidden" name="complete" value="@(task.Started.HasValue ? "true" : "false")" />
+                @if (task.Started.HasValue)
+                {
+                    <label class="d-block mb-2">What did you notice? (optional)<textarea name="observations" maxlength="1000" class="form-control"></textarea></label>
+                    <label class="d-block mb-2">Care instructions for the owner (optional)<textarea name="aftercare" maxlength="1000" class="form-control"></textarea></label>
+                }
+                <button class="btn btn-primary">@(task.Started.HasValue ? "Mark complete" : "Start task")</button>
+            </form>
+        }
+    </section>
+}

@@ -1,0 +1,46 @@
+@using PawsNClaws.Application.Features.Inventory
+@model VisitSupplies
+@{
+    ViewData["Title"] = "Grooming supplies used";
+}
+<h1>Grooming supplies used for @Model.Pet</h1>
+<p><a asp-action="Details" asp-route-id="@Model.VisitId">Back to visit</a></p>
+@if (TempData["SupplySaved"] is string message) { <p class="alert alert-success" role="status">@message</p> }
+<div asp-validation-summary="All" class="text-danger" role="alert"></div>
+@if (Model.PickedUp) { <p>Pickup is complete. Recorded usage is available below.</p> }
+else { <p>Enter the amount actually used. Recording it deducts stock. Add a reason if it differs from the estimate or the item was unplanned.</p> }
+@if (Model.Items.Count == 0) { <p>No grooming consumables are available.</p> }
+@foreach (var item in Model.Items)
+{
+    var attempted = ViewData["AttemptedProduct"] is Guid id && id == item.ProductId;
+    <section class="card card-body mb-3">
+        <h2 class="h5">@item.Name</h2>
+        <p>Estimated: @item.Estimated.ToString("0.###") @item.Unit</p>
+        @if (item.Recorded is decimal recorded)
+        {
+            <p>Recorded: @recorded.ToString("0.###") @item.Unit
+                @if (item.Reversed) { <span> (reversed in <a asp-controller="Inventory" asp-action="Index">Inventory</a>)</span> }
+            </p>
+            @if (item.UsageNote is not null) { <p>Reason: @item.UsageNote</p> }
+            <p>Difference from estimate: @((item.Reversed ? -item.Estimated : recorded - item.Estimated).ToString("+0.###;-0.###;0")) @item.Unit</p>
+        }
+        else if (!Model.PickedUp && item.Available)
+        {
+            <form method="post" asp-action="Supplies" asp-route-id="@Model.VisitId">
+                <input type="hidden" name="revision" value="@Model.Revision" />
+                <input type="hidden" name="productId" value="@item.ProductId" />
+                <label class="form-label d-block">Quantity used (@item.Unit)
+                    <input type="number" class="form-control" name="quantity" required
+                           value="@(attempted && ViewData["AttemptedQuantity"] is decimal amount ? amount.ToString(System.Globalization.CultureInfo.InvariantCulture) : null)"
+                           min="@(item.Unit == "Each" ? "1" : "0.001")" step="@(item.Unit == "Each" ? "1" : "0.001")" />
+                </label>
+                <label class="form-label d-block">Reason for a difference
+                    <input class="form-control" name="reason" maxlength="380" required="@(item.Estimated == 0)"
+                           value="@(attempted ? ViewData["AttemptedReason"] : null)" />
+                </label>
+                <button class="btn btn-primary">Record usage</button>
+            </form>
+        }
+        else if (!item.Available) { <p>This product is unavailable for recording usage.</p> }
+    </section>
+}

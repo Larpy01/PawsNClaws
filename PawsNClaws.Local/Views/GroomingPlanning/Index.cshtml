@@ -1,0 +1,65 @@
+@using PawsNClaws.Application.Features.Grooming
+@model PlanningOverview
+@{
+    ViewData["Title"] = "Grooming setup and price estimates";
+    var targets = ((IReadOnlyList<PlanningOption>)ViewData["Targets"]!).ToDictionary(x => x.Id);
+    var products = ((IReadOnlyList<PlanningOption>)ViewData["Products"]!).ToDictionary(x => x.Id);
+}
+<h1>Grooming setup and price estimates</h1>
+<a asp-controller="GroomingCatalog" asp-action="Index">Grooming services</a>
+<section class="my-4" aria-labelledby="packages">
+    <h2 id="packages">Service packages</h2>
+    <a class="btn btn-primary" asp-action="Package">Add package</a>
+    <ul class="list-group my-2">
+        @foreach (var row in Model.Packages)
+        {
+            <li class="list-group-item">
+                <a asp-action="Package" asp-route-id="@row.Id">@row.Form.Name</a>
+                <span>· @(targets[row.Id].Available ? "Available" : "Unavailable")</span>
+                <div>@string.Join(", ", row.Form.ServiceIds.Select(id => targets[id].Label).Order())</div>
+            </li>
+        }
+    </ul>
+</section>
+<section class="my-4" aria-labelledby="pricing">
+    <h2 id="pricing">Price rules</h2>
+    <a class="btn btn-primary" asp-action="Price">Add price rule</a>
+    <ul class="list-group my-2">
+        @foreach (var row in Model.Prices)
+        {
+            var price = row.Form;
+            var criteria = new[] { price.Species, price.Breed, price.Size, price.Condition }.OfType<string>();
+            <li class="list-group-item">
+                <a asp-action="Price" asp-route-id="@row.Id">@targets[price.TargetId].Label · ₱@price.Amount.ToString("N2")</a>
+                <span>· @(price.IsActive ? "Active" : "Inactive")</span>
+                <div>@string.Join(" · ", criteria.DefaultIfEmpty("Default price"))</div>
+            </li>
+        }
+    </ul>
+</section>
+<section class="my-4" aria-labelledby="recipes">
+    <h2 id="recipes">Estimated supplies by service</h2>
+    <a class="btn btn-primary" asp-action="Recipe">Add supply estimate</a>
+    <ul class="list-group my-2">
+        @foreach (var row in Model.Recipes)
+        {
+            <li class="list-group-item">
+                <a asp-action="Recipe" asp-route-id="@row.Id">@targets[row.Form.ServiceId].Label · @products[row.Form.ProductId].Label</a>
+                <span>· @row.Form.Quantity.ToString("0.###") · @(row.Form.IsActive ? "Active" : "Inactive")</span>
+            </li>
+        }
+    </ul>
+</section>
+<section class="my-4" aria-labelledby="quotes">
+    <h2 id="quotes">Price estimates</h2>
+    <a class="btn btn-primary" asp-action="Quote">Create price estimate</a>
+    <ul class="list-group my-2">
+        @foreach (var quote in Model.Quotes)
+        {
+            <li class="list-group-item">
+                <a asp-action="History" asp-route-id="@quote.Id">@quote.Snapshot.Owner · @quote.Snapshot.Pet</a>
+                <span>· Version @quote.Number · ₱@quote.Snapshot.Total.ToString("N2")</span>
+            </li>
+        }
+    </ul>
+</section>

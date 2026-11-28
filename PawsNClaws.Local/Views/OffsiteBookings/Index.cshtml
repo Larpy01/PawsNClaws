@@ -1,0 +1,174 @@
+@using PawsNClaws.Application.Features.Grooming
+@using PawsNClaws.Domain.Entities
+@model IReadOnlyList<OffsiteBookingRow>
+@{
+    ViewData["Title"] = "Off-site requests";
+    var history = ViewData["History"] is true;
+    var homeGroomers = ViewData["HomeGroomers"] as IReadOnlyList<ChecklistGroomer> ?? [];
+    var transportStaff = ViewData["TransportStaff"] as IReadOnlyList<ChecklistGroomer> ?? [];
+}
+<h1>Off-site requests</h1>
+<p><a asp-action="Index" asp-route-history="@(!history)">@(history ? "Show requests to review" : "Show reviewed requests")</a></p>
+<p><a asp-controller="Customers" asp-action="Index">Find a pet to start from a price estimate</a></p>
+@if (TempData["OffsiteSuccess"] is string success) { <p class="alert alert-success" role="status">@success</p> }
+@if (TempData["OffsiteError"] is string error) { <p class="alert alert-danger" role="alert">@error</p> }
+@if (Model.Count == 0) { <p>No requests to show.</p> }
+@foreach (var row in Model)
+{
+    var booking = row.Booking;
+    var kind = booking.Kind switch { OffsiteKind.HomeService => "Home grooming", OffsiteKind.Pickup => "Pet pickup", _ => "Return delivery" };
+    <section class="card card-body mb-3">
+        <h2 class="h5">@row.Estimate.Pet · @kind</h2>
+        <p>@row.Estimate.Owner · @booking.Phone<br />@booking.Address<br />Requested @PhilippineDateTime.FormatUtc(booking.RequestedAtUtc)</p>
+        <p><a asp-controller="GroomingPlanning" asp-action="History" asp-route-id="@booking.EstimateId">Price estimate version @booking.EstimateVersion</a></p>
+        @if (booking.Status == OffsiteStatus.Requested)
+        {
+            <p>Before approving this request, verify that the address is in downtown Davao City.</p>
+            <form asp-action="Review" asp-route-id="@booking.Id" method="post">
+                <input type="hidden" name="revision" value="@booking.Revision" />
+                <label class="d-block mb-2">Review note
+                    <textarea name="reason" class="form-control" maxlength="500" required></textarea>
+                </label>
+                @if (booking.Kind == OffsiteKind.HomeService)
+                {
+                    <button name="decision" value="AwaitingDeposit" class="btn btn-primary">Mark as awaiting deposit</button>
+                }
+                else
+                {
+                    <button name="decision" value="Reviewed" class="btn btn-primary">Mark reviewed</button>
+                }
+                <button name="decision" value="Rejected" class="btn btn-outline-danger">Reject request</button>
+            </form>
+        }
+        else
+        {
+            <p>@(booking.Status == OffsiteStatus.AwaitingDeposit ? "Awaiting deposit" : booking.Status.ToString()) · @booking.ReviewReason</p>
+        }
+        @if (booking.Status == OffsiteStatus.AwaitingDeposit)
+        {
+            if (booking.HoldExpiresAtUtc is DateTime expiry && expiry > DateTime.UtcNow)
+            {
+                <p>Slot held until @PhilippineDateTime.FormatUtc(expiry) · Deposit required ₱@booking.DepositRequired?.ToString("N2")</p>
+                <form asp-action="ConfirmHome" asp-route-id="@booking.Id" method="post" class="mb-3">
+                    <input type="hidden" name="revision" value="@booking.Revision" />
+                    <label class="d-block mb-2"><input type="checkbox" name="accepted" value="true" required /> Customer accepted this estimate</label>
+                    <label class="d-block mb-2">Verified deposit (₱)<input name="amount" class="form-control" type="number" min="0" step="0.01" required /></label>
+                    <label class="d-block mb-2">Payment reference<input name="reference" class="form-control" maxlength="100" required /></label>
+                    <button class="btn btn-primary">Confirm home service</button>
+                </form>
+            }
+            else
+            {
+                <form asp-action="HoldHome" asp-route-id="@booking.Id" method="post" class="mb-3">
+                    <input type="hidden" name="revision" value="@booking.Revision" />
+                    <label class="d-block mb-2">Groomer
+                        <select name="groomerId" class="form-select" required>
+                            <option value="">Choose a groomer</option>
+                            @foreach (var staff in homeGroomers) { <option value="@staff.Id">@staff.Name</option> }
+                        </select>
+                    </label>
+                    <label class="d-block mb-2">Service and travel time (minutes)<input name="minutes" class="form-control" type="number" min="1" max="720" required /></label>
+                    <label class="d-block mb-2">Hold until (Philippine time)<input name="expiresAt" class="form-control" type="datetime-local" required /></label>
+                    <button class="btn btn-primary">Reserve requested slot</button>
+                </form>
+            }
+        }
+        @if (booking.Status == OffsiteStatus.Confirmed)
+        {
+            <p>Confirmed @PhilippineDateTime.FormatUtc(booking.ConfirmedAtUtc!.Value) · Verified deposit ₱@booking.VerifiedDeposit?.ToString("N2")</p>
+        }
+        @if (booking.Kind == OffsiteKind.HomeService &&
+            booking.Status is OffsiteStatus.AwaitingDeposit or OffsiteStatus.Confirmed)
+        {
+            <details class="mt-3">
+                <summary>Cancel home service</summary>
+                @if (booking.VerifiedDeposit is > 0) { <p>The recorded deposit will be sent for manual refund review.</p> }
+                <form asp-action="CancelHome" asp-route-id="@booking.Id" method="post" class="mt-2">
+                    <input type="hidden" name="revision" value="@booking.Revision" />
+                    <label class="d-block mb-2">Cancellation reason
+                        <textarea name="reason" class="form-control" maxlength="500" required></textarea>
+                    </label>
+                    <button class="btn btn-outline-danger">Confirm cancellation</button>
+                </form>
+            </details>
+        }
+        @if (booking.HomeCancelledAtUtc is DateTime homeCancelled)
+        {
+            <p>Cancelled @PhilippineDateTime.FormatUtc(homeCancelled) · @booking.HomeCancellationReason</p>
+            @if (booking.VerifiedDeposit is > 0)
+            {
+                <p>Verified deposit ₱@booking.VerifiedDeposit.Value.ToString("N2") · Reference @booking.DepositReference</p>
+                @if (booking.RefundReviewedAtUtc is DateTime reviewed)
+                {
+                    <p>Refund reviewed @PhilippineDateTime.FormatUtc(reviewed) · @booking.RefundReviewNote</p>
+                }
+                else
+                {
+                    <p>Awaiting manual refund review. Review the deposit and record the outcome here.</p>
+                    <form asp-action="ReviewRefund" asp-route-id="@booking.Id" method="post">
+                        <input type="hidden" name="revision" value="@booking.Revision" />
+                        <label class="d-block mb-2">Refund review outcome
+                            <textarea name="note" class="form-control" maxlength="500" required></textarea>
+                        </label>
+                        <button class="btn btn-primary">Record refund review</button>
+                    </form>
+                }
+            }
+        }
+        @if (booking.Status == OffsiteStatus.Reviewed)
+        {
+            @if (transportStaff.Count == 0) { <p>No active employees are available for transport.</p> }
+            else
+            {
+                <form asp-action="ScheduleTransport" asp-route-id="@booking.Id" method="post">
+                    <input type="hidden" name="revision" value="@booking.Revision" />
+                    <label class="d-block mb-2">Staff member handling transport
+                        <select name="assignee" class="form-select" required>
+                            <option value="">Choose a staff member</option>
+                            @foreach (var staff in transportStaff) { <option value="@staff.Id">@staff.Name</option> }
+                        </select>
+                    </label>
+                    <label class="d-block mb-2">Scheduled start (Philippine time)
+                        <input name="startsAt" type="datetime-local" class="form-control" required />
+                    </label>
+                    <label class="d-block mb-2">Time to reserve (minutes)
+                        <input name="minutes" type="number" min="1" max="720" class="form-control" required />
+                    </label>
+                    <button class="btn btn-primary">Schedule transport</button>
+                </form>
+            }
+        }
+        @if (booking.TransportStartUtc is DateTime start && booking.TransportEndUtc is DateTime end)
+        {
+            <p>Assigned to @row.TransportEmployee</p>
+            <p>Scheduled @PhilippineDateTime.FormatUtc(start) to @PhilippineDateTime.FormatUtc(end)</p>
+        }
+        @if (booking.TransportCancellationReason is not null) { <p>Cancellation reason: @booking.TransportCancellationReason</p> }
+        @if (booking.Status is OffsiteStatus.Reviewed or OffsiteStatus.Scheduled)
+        {
+            <details class="mt-3">
+                <summary>Cancel transport</summary>
+                <form asp-action="CancelTransport" asp-route-id="@booking.Id" method="post" class="mt-2">
+                    <input type="hidden" name="revision" value="@booking.Revision" />
+                    <label class="d-block mb-2">Cancellation reason
+                        <textarea name="reason" class="form-control" maxlength="500" required></textarea>
+                    </label>
+                    <button class="btn btn-outline-danger">Confirm cancellation</button>
+                </form>
+            </details>
+        }
+        @if (booking.CustodyAtUtc is DateTime custody) { <p>Collected from @booking.ReleasedByName on @PhilippineDateTime.FormatUtc(custody)</p> }
+        @if (booking.DeliveredAtUtc is DateTime delivery) { <p>Delivered to @booking.AcceptedByName on @PhilippineDateTime.FormatUtc(delivery)</p> }
+        @if (booking.Status is OffsiteStatus.Scheduled or OffsiteStatus.InCustody)
+        {
+            var collecting = booking.Status == OffsiteStatus.Scheduled;
+            <form asp-action="Handover" asp-route-id="@booking.Id" method="post">
+                <input type="hidden" name="revision" value="@booking.Revision" />
+                <label class="d-block mb-2">@(collecting ? "Who handed over the pet?" : "Who received the pet?")
+                    <input name="person" maxlength="150" class="form-control" required />
+                </label>
+                <button class="btn btn-primary">@(collecting ? "Record collection" : "Record delivery")</button>
+            </form>
+        }
+    </section>
+}

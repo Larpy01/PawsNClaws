@@ -1,0 +1,66 @@
+@using PawsNClaws.Application.Features.Grooming
+@using PawsNClaws.Domain.Entities
+@using PawsNClaws.Infastructure.Identity.Local
+@model WalkInBoard
+@{
+    ViewData["Title"] = "Walk-in queue";
+    var canPrioritize = User.IsInRole(LocalRoles.Admin) || User.IsInRole(LocalRoles.Manager);
+    var next = Model.Open.FirstOrDefault(x => x.Status == WalkInStatus.Waiting);
+}
+<h1>Walk-in queue</h1>
+<p><a asp-controller="Customers" asp-action="Index" class="btn btn-outline-primary">Find a customer to add a pet</a></p>
+@if (TempData["QueueSuccess"] is string success) { <p class="alert alert-success" role="status">@success</p> }
+@if (TempData["QueueError"] is string error) { <p class="alert alert-danger" role="alert">@error</p> }
+@if (Model.Open.Count == 0) { <p>No pets are waiting or called.</p> }
+@foreach (var entry in Model.Open)
+{
+    <section class="card card-body mb-3">
+        <h2 class="h5">@entry.Pet <span class="text-muted">· @entry.Customer</span></h2>
+        <p>Arrived @PhilippineDateTime.FormatUtc(entry.ArrivedAtUtc) · @(entry.Id == next?.Id ? "Next to call" : entry.Status.ToString())</p>
+        @if (entry.PriorityReason is not null) { <p>Priority reason: @entry.PriorityReason</p> }
+        @if (entry.Status == WalkInStatus.Called)
+        {
+            @if (canPrioritize)
+            {
+                <p><a asp-controller="GroomingPlanning" asp-action="PetQuotes" asp-route-id="@entry.PetId">Open price estimates for check-in</a></p>
+            }
+            else { <p>Ready for a manager to open the grooming visit.</p> }
+        }
+        else if (entry.Id == next?.Id || canPrioritize)
+        {
+            <form asp-action="Call" asp-route-id="@entry.Id" method="post" class="mb-2">
+                <input type="hidden" name="revision" value="@entry.Revision" />
+                @if (entry.Id != next?.Id)
+                {
+                    <label class="form-label d-block">Reason for calling @entry.Pet out of order
+                        <input class="form-control" name="reason" required maxlength="500" />
+                    </label>
+                }
+                <button class="btn @(entry.Id == next?.Id ? "btn-primary" : "btn-outline-secondary")">@(entry.Id == next?.Id ? "Call next pet" : "Call out of order")</button>
+            </form>
+        }
+        <details>
+            <summary>Remove from queue</summary>
+            <form asp-action="Cancel" asp-route-id="@entry.Id" method="post" class="mt-2">
+                <input type="hidden" name="revision" value="@entry.Revision" />
+                <label class="form-label d-block">Why is @entry.Pet leaving the queue?
+                    <input class="form-control" name="reason" required maxlength="500" />
+                </label>
+                <button class="btn btn-outline-danger">Remove pet</button>
+            </form>
+        </details>
+    </section>
+}
+@if (Model.Recent.Count > 0)
+{
+    <h2 class="h5">Recent queue activity</h2>
+    <ul>
+    @foreach (var entry in Model.Recent)
+    {
+        <li>@entry.Pet · @entry.Customer · @(entry.Status == WalkInStatus.CheckedIn ? "Checked in" : "Removed") · Arrived @PhilippineDateTime.FormatUtc(entry.ArrivedAtUtc)
+            @if (entry.PriorityReason is not null) { <span>· Priority reason: @entry.PriorityReason</span> }
+            @if (entry.CancellationReason is not null) { <span>· Removal reason: @entry.CancellationReason</span> }
+        </li>
+    }
+    </ul>
+}

@@ -19,6 +19,11 @@ public sealed class InventoryController(IInventoryService inventory) : Controlle
         View(await inventory.GetOverviewAsync(User, requestPage, movementPage, receiptPage, cancellationToken));
 
     [HttpGet]
+    [Authorize(Roles = LocalRoles.Admin + "," + LocalRoles.Manager)]
+    public async Task<IActionResult> Alerts(CancellationToken cancellationToken) =>
+        View(await inventory.GetAlertsAsync(User, cancellationToken));
+
+    [HttpGet]
     [Authorize(Policy = Permissions.InventoryAdjust, Roles = LocalRoles.Admin + "," + LocalRoles.Manager)]
     public async Task<IActionResult> Catalog(Guid id, CancellationToken cancellationToken)
     {
@@ -60,7 +65,8 @@ public sealed class InventoryController(IInventoryService inventory) : Controlle
     public Task<IActionResult> Receive(ReceivingForm form, CancellationToken cancellationToken) =>
         ExecuteWithPhotosAsync(form.Photos, uploads => inventory.ReceiveAsync(User,
             new(form.OperationId, form.ProductId, form.Supplier, form.Reference, form.Lot, form.ExpiryDate,
-                form.Delivered, form.Accepted, form.Rejected, form.UnitCost, form.RejectionReason, form.InputUnit),
+                form.Delivered, form.Accepted, form.Rejected, form.UnitCost, form.RejectionReason, form.InputUnit,
+                form.SupplierInvoiceVat),
             uploads, cancellationToken));
 
     [HttpPost]

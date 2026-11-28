@@ -1,0 +1,31 @@
+@using System.Globalization
+@{
+    var references = new (string Name, decimal Price, string Retailer, string Source)[]
+    {
+        ("Glam Organic Forever Love Dog Shampoo 500ml", 319m, "Pet Express",
+            "https://www.petexpress.com.ph/products/glam-organic-forever-love-shampoo-500ml-1"),
+        ("Pedigree Adult Chicken and Vegetables Dry Dog Food 1.5kg", 315m, "Pet Express",
+            "https://www.petexpress.com.ph/products/pedigree-chicken-vegetables-dry-dog-food-1-5kg"),
+        ("Simple Pets Ponkan Clumping Cat Litter 10L (8kg)", 370m, "Pet Warehouse",
+            "https://www.petwarehouse.ph/cat/simple-pets-ponkan-clumping-cat-litter-10l-8kg.html"),
+        ("JerHigh Cookie Real Chicken Meat Dog Treats 70g", 120m, "Pet Warehouse",
+            "https://www.petwarehouse.ph/dog/dog-treats-new/bones-bully-sticks-natural-chews/?p=2")
+    };
+}
+<details class="mb-3" id="retail-price-references">
+    <summary>Philippine retail price references</summary>
+    <p class="small mt-2">Regular prices checked November 28, 2026. Choose a comparable item and review the selling price before saving.</p>
+    <ul class="list-unstyled">
+        @foreach (var item in references)
+        {
+            <li class="mb-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        data-product-name="@item.Name" data-price="@item.Price.ToString("0.00", CultureInfo.InvariantCulture)">
+                    Use PHP @item.Price.ToString("N2")
+                </button>
+                @item.Name
+                <a href="@item.Source" target="_blank" rel="noopener noreferrer">@item.Retailer</a>
+            </li>
+        }
+    </ul>
+</details>

@@ -1,0 +1,33 @@
+@using PawsNClaws.Application.Features.Grooming
+@model VisitChecklist
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Groomer checklist · @Model.Visit.Estimate.Pet</title>
+    <style>
+        body { font: 1rem/1.5 system-ui, sans-serif; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
+        section { break-inside: avoid; }
+        ul { list-style: none; padding: 0; }
+        li { margin: .65rem 0; }
+        .box { display: inline-block; width: 1em; height: 1em; border: 1.5px solid; vertical-align: middle; margin-right: .6em; }
+        @@media print { nav { display: none; } body { margin: 0; } }
+    </style>
+</head>
+<body>
+    <nav><button type="button" onclick="window.print()">Print checklist</button> · <a asp-action="Details" asp-route-id="@Model.Visit.Id">Back to visit</a></nav>
+    <h1>Groomer task checklist</h1>
+    <p><strong>Name of Pet: @Model.Visit.Estimate.Pet</strong> <br /> 
+        Pet Owner: @Model.Visit.Estimate.Owner <br />
+        Visit started @PhilippineDateTime.FormatUtc(Model.Visit.StartedAtUtc) · Price estimate version @Model.Visit.EstimateVersion</p>
+    @foreach (var group in Model.Tasks.GroupBy(x => string.Join(",", x.AssignedGroomers.Select(g => g.Id).Order())))
+    {
+        <section><h2>@string.Join(", ", group.First().AssignedGroomers.Select(x => x.Name))</h2>
+        <ul>@foreach (var task in group) { <li><span class="box"></span>@task.Service</li> }</ul></section>
+    }
+</body>
+</html>

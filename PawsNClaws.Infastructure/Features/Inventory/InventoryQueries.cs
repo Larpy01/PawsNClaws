@@ -13,18 +13,20 @@ public sealed partial class InventoryService
     {
         var actorId = InventoryAccess.Demand(actor, Permissions.InventoryView);
         var management = InventoryAccess.IsManagement(actor);
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(8));
         var inventoryBatches = db.Set<InventoryBatch>().AsNoTracking();
+        var usableBatches = UsableBatches(today);
         var stock = await (from product in db.Products.AsNoTracking()
             join balance in db.InventoryStocks on product.Id equals balance.ProductId into balances
             from balance in balances.DefaultIfEmpty()
             orderby product.Name, product.Id
             select new StockLine(product.Id, product.SKU, product.Name, product.Unit,
                 balance == null ? 0 : balance.QuantityOnHand,
-                inventoryBatches.Where(x => x.ProductId == product.Id && (x.ExpiryDate == null || x.ExpiryDate >= today))
+                usableBatches.Where(x => x.ProductId == product.Id)
                     .Sum(x => x.OnHand - x.Quarantined),
                 inventoryBatches.Where(x => x.ProductId == product.Id).Sum(x => x.Quarantined),
-                balance == null ? 0 : balance.ReorderLevel)).ToListAsync(ct);
+                balance == null ? 0 : balance.ReorderLevel,
+                product.IsActive && product.IsSellable && product.Unit == "Each" ? product.Price : (decimal?)null)).ToListAsync(ct);
         var batches = await inventoryBatches.Where(x => x.OnHand > 0)
             .OrderBy(x => x.ExpiryDate).ThenBy(x => x.ReceivedAtUtc).ThenBy(x => x.Id)
             .Select(x => new BatchLine(x.Id, x.ProductId, x.Lot, x.ExpiryDate, x.OnHand, x.Quarantined)).ToListAsync(ct);
@@ -44,7 +46,7 @@ public sealed partial class InventoryService
             orderby receipt.ReceivedAtUtc descending, receipt.Id
             select new ReceiptLine(receipt.Id, product.Name, receipt.Supplier, receipt.Reference,
                 receipt.Delivered, receipt.Accepted, receipt.Rejected, receipt.ReceivedAtUtc,
-                receipt.Evidence.Select(photo => new EvidenceLink(photo.Id, "receipt")).ToList()))
+                receipt.Evidence.Select(photo => new EvidenceLink(photo.Id, "receipt")).ToList(), receipt.SupplierInvoiceVat))
             .Skip(PageOffset(receiptPage)).Take(25).ToListAsync(ct);
         var estimates = await (from estimate in db.Set<GroomingUsageEstimate>().AsNoTracking()
             join product in db.Products on estimate.ProductId equals product.Id
@@ -55,6 +57,36 @@ public sealed partial class InventoryService
             .Take(25).ToListAsync(ct);
         return new(stock, batches, requests, movements, receipts, estimates);
     }
+
+    public async Task<InventoryAlerts> GetAlertsAsync(ClaimsPrincipal actor, CancellationToken ct)
+    {
+        InventoryAccess.Demand(actor, Permissions.InventoryView, management: true);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(8));
+        var through = today.AddDays(30);
+        var products = db.Products.AsNoTracking();
+        var usableBatches = UsableBatches(today);
+        var low = await (from balance in db.InventoryStocks.AsNoTracking()
+                         join product in products on balance.ProductId equals product.Id
+                         where product.IsActive && balance.ReorderLevel > 0
+                         let usable = usableBatches.Where(x => x.ProductId == product.Id)
+                             .Sum(x => x.OnHand - x.Quarantined)
+                         where usable <= balance.ReorderLevel
+                         orderby usable, product.Name, product.Id
+                         select new LowStockAlert(product.Id, product.SKU, product.Name, product.Unit,
+                             balance.QuantityOnHand, usable, balance.ReorderLevel)).ToListAsync(ct);
+        var expiring = await (from batch in db.Set<InventoryBatch>().AsNoTracking()
+                              join product in products on batch.ProductId equals product.Id
+                              where batch.OnHand > 0 && batch.ExpiryDate.HasValue && batch.ExpiryDate <= through
+                              orderby batch.ExpiryDate, product.Name, product.Id, batch.Id
+                              select new BatchExpiryAlert(product.SKU, product.Name, product.Unit, batch.Lot,
+                                  batch.ExpiryDate!.Value, batch.OnHand, batch.Quarantined)).ToListAsync(ct);
+
+        return new(today, through, low, expiring.Where(x => x.Expiry >= today).ToArray(),
+            expiring.Where(x => x.Expiry < today).ToArray());
+    }
+
+    private IQueryable<InventoryBatch> UsableBatches(DateOnly today) =>
+        db.Set<InventoryBatch>().AsNoTracking().Where(x => x.ExpiryDate == null || x.ExpiryDate >= today);
 
     public async Task<RequestLine?> GetRequestAsync(ClaimsPrincipal actor, Guid id, CancellationToken ct)
     {

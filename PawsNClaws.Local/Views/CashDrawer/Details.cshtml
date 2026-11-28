@@ -1,0 +1,43 @@
+@using PawsNClaws.Application.Features.Inventory
+@using PawsNClaws.Domain.Entities
+@model CashShiftDetails
+@{ ViewData["Title"] = "Cash shift activity"; }
+<h1>Cash shift activity</h1>
+<p><a asp-action="Index">Back to cash drawer</a></p>
+<p>Opened @PhilippineDateTime.FormatUtc(Model.Shift.OpenedAtUtc)</p>
+<dl>
+    <dt>Opening cash</dt><dd>₱@Model.Shift.OpeningCash.ToString("N2")</dd>
+    <dt>Expected cash</dt><dd>₱@Model.Expected.ToString("N2")</dd>
+    @if (Model.Shift.ClosedAtUtc is DateTime closed && Model.Shift.CountedCash is decimal counted)
+    {
+        var variance = counted - Model.Expected;
+        <dt>Closed</dt><dd>@PhilippineDateTime.FormatUtc(closed)</dd>
+        <dt>Counted cash</dt><dd>₱@counted.ToString("N2")</dd>
+        <dt>Difference</dt><dd>@(variance == 0 ? "Balanced" : variance < 0 ? $"Short ₱{-variance:N2}" : $"Over ₱{variance:N2}")</dd>
+    }
+</dl>
+@if (Model.Entries.Count == 0) { <p>No cash movements were recorded for this shift.</p> }
+else
+{
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th scope="col">Time</th><th scope="col">Activity</th><th scope="col">Amount</th><th scope="col">Reason or reference</th></tr></thead>
+            <tbody>
+            @foreach (var entry in Model.Entries)
+            {
+                var label = entry.Kind switch {
+                    CashDrawerEntryKind.RetailSale => "Retail sale", CashDrawerEntryKind.RetailRefund => "Retail refund",
+                    CashDrawerEntryKind.GroomingPayment => "Grooming cash payment", _ => "Manual movement"
+                };
+                <tr><td>@PhilippineDateTime.FormatUtc(entry.RecordedAtUtc)</td><td>@label</td>
+                    <td>@(entry.Amount < 0 ? "-" : "+")₱@Math.Abs(entry.Amount).ToString("N2")</td>
+                    <td class="text-break">@if (entry.Kind is CashDrawerEntryKind.RetailSale or CashDrawerEntryKind.RetailRefund)
+                    {
+                        <a asp-controller="RetailCheckout" asp-action="Details" asp-route-id="@entry.ReferenceId">@entry.ReferenceId</a>
+                    }
+                    else { @(entry.Reason ?? entry.ReferenceId.ToString()) }</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

@@ -21,6 +21,7 @@ public sealed class InventoryMovement
     public decimal QuantityAfter { get; set; }
 
     public Guid? ReversesMovementId { get; set; }
+    public Guid? GroomingVisitId { get; set; }
     public Guid? UsageEstimateId { get; set; }
     public ICollection<InventoryMovementAllocation> Allocations { get; set; } = new List<InventoryMovementAllocation>();
 

@@ -1,0 +1,66 @@
+@using Microsoft.AspNetCore.Authorization
+@using PawsNClaws.Application.Features.Inventory
+@using PawsNClaws.Infastructure.Identity.Local
+@inject IAuthorizationService AuthorizationService
+@model CashDrawerBoard
+@{
+    ViewData["Title"] = "Cash drawer";
+    var canRecord = (await AuthorizationService.AuthorizeAsync(User, Permissions.PosCreateSale)).Succeeded;
+}
+<h1>Cash drawer</h1>
+@if (TempData["CashDrawerError"] is string error) { <p role="alert" class="alert alert-danger">@error</p> }
+@if (TempData["CashDrawerSuccess"] is string success) { <p role="status" class="alert alert-success">@success</p> }
+@if (Model.Active is { } active)
+{
+    <p>Open since @PhilippineDateTime.FormatUtc(active.OpenedAtUtc) · <a asp-action="Details" asp-route-id="@active.Id">View shift activity</a></p>
+    <p>Opening cash ₱@active.OpeningCash.ToString("N2") · Expected cash ₱@Model.Expected.ToString("N2")</p>
+    @if (canRecord)
+    {
+        <details class="mb-3">
+            <summary>Record cash added or removed</summary>
+            <form asp-action="Movement" method="post" class="mt-2">
+                <input type="hidden" name="shiftId" value="@active.Id" />
+                <input type="hidden" name="operationId" value="@Guid.NewGuid()" />
+                <label class="d-block mb-2">Amount (₱)
+                    <input type="number" name="amount" step="0.01" class="form-control" required aria-describedby="cash-direction" />
+                </label>
+                <p class="form-text" id="cash-direction">Use a positive amount for cash added and a minus sign for cash removed.</p>
+                <label class="d-block mb-2">Reason <input name="reason" class="form-control" maxlength="500" required /></label>
+                <button class="btn btn-primary">Record cash movement</button>
+            </form>
+        </details>
+        <details class="mb-3">
+            <summary>Close cash shift</summary>
+            <form asp-action="Close" method="post" class="mt-2">
+                <input type="hidden" name="shiftId" value="@active.Id" />
+                <label class="d-block mb-2">Counted cash (₱)
+                    <input type="number" name="countedCash" min="0" step="0.01" class="form-control" required />
+                </label>
+                <button class="btn btn-primary">Confirm count and close</button>
+            </form>
+        </details>
+    }
+}
+else
+{
+    <p>No cash shift is open.</p>
+    @if (canRecord)
+    {
+        <form asp-action="Open" method="post" class="mb-4">
+            <label class="d-block mb-2">Opening cash (₱)
+                <input type="number" name="openingCash" min="0" step="0.01" class="form-control" required />
+            </label>
+            <button class="btn btn-primary">Open cash shift</button>
+        </form>
+    }
+}
+<h2 class="h5">Recent closed shifts</h2>
+@if (Model.Recent.Count == 0) { <p>No closed shifts yet.</p> }
+<ul>
+@foreach (var shift in Model.Recent)
+{
+    var variance = shift.CountedCash.GetValueOrDefault() - shift.ExpectedAtClose.GetValueOrDefault();
+    <li><a asp-action="Details" asp-route-id="@shift.Id">Shift opened @PhilippineDateTime.FormatUtc(shift.OpenedAtUtc)</a>
+        · @(variance == 0 ? "Balanced" : variance < 0 ? $"Short ₱{-variance:N2}" : $"Over ₱{variance:N2}")</li>
+}
+</ul>

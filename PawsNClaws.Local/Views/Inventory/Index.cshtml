@@ -3,6 +3,7 @@
 @using PawsNClaws.Domain.Enums
 @using PawsNClaws.Infastructure.Features.Inventory
 @using PawsNClaws.Infastructure.Identity.Local
+@inject PawsNClaws.Application.Features.Products.RetailTax RetailTax
 @{
     ViewData["Title"] = "Inventory";
     var management = InventoryAccess.IsManagement(User);
@@ -16,6 +17,10 @@
     int Page(string key) => int.TryParse(Context.Request.Query[key], out var page) ? Math.Clamp(page, 1, 10000) : 1;
 }
 <h1>Inventory</h1>
+@if (management)
+{
+    <p><a asp-action="Alerts" class="btn btn-outline-primary">Inventory alerts</a></p>
+}
 @if (TempData["Success"] is string success)
 {
     <div class="alert alert-success" role="status">@success</div>
@@ -29,12 +34,13 @@
     <h2 id="stock-heading">Stock balances</h2>
     <div class="table-responsive">
         <table class="table table-sm align-middle">
-            <thead><tr><th>SKU</th><th>Product</th><th>Unit</th><th>On hand</th><th>Usable</th><th>Quarantined</th><th>Reorder level</th>@if (canAdjust) { <th>Settings</th> }</tr></thead>
+            <thead><tr><th>SKU</th><th>Product</th><th>Unit</th><th>@RetailTax.PriceLabel (PHP)</th><th>On hand</th><th>Usable</th><th>Quarantined</th><th>Reorder level</th>@if (canAdjust) { <th>Settings</th> }</tr></thead>
             <tbody>
             @foreach (var row in Model.Stock)
             {
                 <tr>
                     <td>@row.Sku</td><td>@row.Name</td><td>@row.Unit</td>
+                    <td>@(row.RetailPrice?.ToString("N2") ?? "—")</td>
                     <td>@row.OnHand.ToString("0.###")</td><td>@row.Usable.ToString("0.###")</td>
                     <td>@row.Quarantined.ToString("0.###")</td><td>@row.ReorderLevel.ToString("0.###")</td>
                     @if (canAdjust)
@@ -88,7 +94,12 @@
             <div class="col-md-3"><label class="form-label" for="delivered">Delivered</label><input class="form-control" id="delivered" name="Delivered" type="number" min="0" step="any" required /></div>
             <div class="col-md-3"><label class="form-label" for="accepted">Accepted</label><input class="form-control" id="accepted" name="Accepted" type="number" min="0" step="any" required /></div>
             <div class="col-md-3"><label class="form-label" for="rejected">Rejected</label><input class="form-control" id="rejected" name="Rejected" type="number" min="0" step="any" value="0" required /></div>
-            <div class="col-md-3"><label class="form-label" for="cost">Cost per base unit (₱)</label><input class="form-control" id="cost" name="UnitCost" type="number" min="0" step="0.01" /></div>
+            <div class="col-md-3"><label class="form-label" for="cost">Supplier cost per base unit (PHP)</label><input class="form-control" id="cost" name="UnitCost" type="number" min="0" step="0.01" /></div>
+            <div class="col-md-3">
+                <label class="form-label" for="supplier-vat">Supplier invoice VAT (PHP)</label>
+                <input class="form-control" id="supplier-vat" name="SupplierInvoiceVat" type="number" min="0" step="0.01" aria-describedby="supplier-vat-help" />
+                <div class="form-text" id="supplier-vat-help">Optional. Enter the VAT documented for the accepted items and include the invoice reference.</div>
+            </div>
             <div class="col-md-6"><label class="form-label" for="rejection-reason">Reason for rejected items</label><textarea class="form-control" id="rejection-reason" name="RejectionReason" maxlength="500"></textarea></div>
             <div class="col-md-6"><label class="form-label" for="receipt-photos">Photos of rejected items</label><input class="form-control" id="receipt-photos" name="Photos" type="file" accept="image/jpeg,image/png" multiple /></div>
             <div class="col-12"><button class="btn btn-primary" type="submit">Record receipt</button></div>
@@ -263,13 +274,14 @@
     <h2 id="receipts-heading">Receiving history</h2>
     <div class="table-responsive">
         <table class="table table-sm">
-            <thead><tr><th>Time</th><th>Product</th><th>Supplier</th><th>Delivered</th><th>Accepted</th><th>Rejected</th><th>Evidence</th></tr></thead>
+            <thead><tr><th>Time</th><th>Product</th><th>Supplier</th><th>Delivered</th><th>Accepted</th><th>Rejected</th><th>Supplier invoice VAT (PHP)</th><th>Evidence</th></tr></thead>
             <tbody>
                 @foreach (var receipt in Model.Receipts)
                 {
                     <tr>
                         <td>@receipt.AtUtc.ToLocalTime().ToString("g")</td><td>@receipt.Product</td><td>@receipt.Supplier @receipt.Reference</td>
                         <td>@receipt.Delivered.ToString("0.###")</td><td>@receipt.Accepted.ToString("0.###")</td><td>@receipt.Rejected.ToString("0.###")</td>
+                        <td>@(receipt.SupplierInvoiceVat?.ToString("N2") ?? "—")</td>
                         <td>@foreach (var photo in receipt.Evidence) { <a class="me-2" asp-action="Evidence" asp-route-source="@photo.Source" asp-route-id="@photo.Id">Download photo</a> }</td>
                     </tr>
                 }

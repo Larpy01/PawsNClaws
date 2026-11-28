@@ -1,0 +1,94 @@
+@using PawsNClaws.Application.Features.Grooming
+@model VisitChecklist
+@{
+    ViewData["Title"] = "Grooming tasks";
+    var groomers = (IReadOnlyList<ChecklistGroomer>)ViewData["Groomers"]!;
+    var services = Model.Services;
+    var closed = Model.Visit.PickedUpAtUtc.HasValue;
+    var draftVisit = TempData["TaskDraftVisit"] as Guid?;
+    var draftRevision = TempData["TaskDraftRevision"] as Guid?;
+    var draftIndex = TempData["TaskDraftIndex"] as int?;
+    var restoreDraft = draftVisit == Model.Visit.Id && draftRevision == Model.Visit.RevisionToken;
+    var draftObservations = TempData["TaskDraftObservations"] as string;
+    var draftAftercare = TempData["TaskDraftAftercare"] as string;
+}
+<h1>Grooming tasks for @Model.Visit.Estimate.Pet</h1>
+<p><a asp-action="Details" asp-route-id="@Model.Visit.Id">Back to visit</a></p>
+@if (TempData["TaskError"] is string error) { <p class="alert alert-danger" role="alert">@error</p> }
+@if (TempData["TaskSuccess"] is string success) { <p class="alert alert-success" role="status">@success</p> }
+
+@if (Model.Tasks.Count > 0)
+{
+    <p>@Model.Tasks.Count(x => x.Completed.HasValue) of @Model.Tasks.Count tasks complete · <a asp-action="Checklist" asp-route-id="@Model.Visit.Id">Print saved checklist</a></p>
+    @for (var i = 0; i < Model.Tasks.Count; i++)
+    {
+        var task = Model.Tasks[i];
+        <section class="card card-body mb-3">
+            <h2 class="h5">@task.Service</h2>
+            <p>@string.Join(", ", task.AssignedGroomers.Select(x => x.Name)) · @task.Status</p>
+            @if (task.Started.HasValue) { <p>Started @PhilippineDateTime.FormatUtc(task.Started.Value)</p> }
+            @if (task.Completed.HasValue)
+            {
+                <p>Completed @PhilippineDateTime.FormatUtc(task.Completed.Value)</p>
+                @if (!string.IsNullOrEmpty(task.Observations)) { <p>Observations: @task.Observations</p> }
+                @if (!string.IsNullOrEmpty(task.Aftercare)) { <p>Aftercare: @task.Aftercare</p> }
+            }
+            else if (!closed)
+            {
+                <form asp-action="TaskProgress" asp-route-id="@Model.Visit.Id" method="post">
+                    <input type="hidden" name="revision" value="@Model.Visit.RevisionToken" />
+                    <input type="hidden" name="index" value="@i" />
+                    <input type="hidden" name="complete" value="@(task.Started.HasValue ? "true" : "false")" />
+                    @if (task.Started.HasValue)
+                    {
+                        <label class="d-block mb-2">Groomer's observations (optional)
+                            <textarea name="observations" class="form-control" maxlength="1000">@(restoreDraft && draftIndex == i ? draftObservations : null)</textarea>
+                        </label>
+                        <label class="d-block mb-2">Care instructions for the owner (optional)
+                            <textarea name="aftercare" class="form-control" maxlength="1000">@(restoreDraft && draftIndex == i ? draftAftercare : null)</textarea>
+                        </label>
+                    }
+                    <button class="btn btn-primary">@(task.Started.HasValue ? "Mark complete" : "Start task")</button>
+                </form>
+            }
+        </section>
+    }
+}
+@if (!closed && (Model.Tasks.Count == 0 || Model.Tasks.Any(x => !x.Started.HasValue)))
+{
+    <h2 class="h5">Assign groomers</h2>
+    <p>Select one or more groomers for each service. They share the same task and completion notes.</p>
+    @if (groomers.Count == 0) { <p>No active groomers are available.</p> }
+    else
+    {
+        <form method="post" asp-action="Tasks" asp-route-id="@Model.Visit.Id">
+            <input type="hidden" name="revision" value="@Model.Visit.RevisionToken" />
+            @for (var i = 0; i < services.Length; i++)
+            {
+                var assigned = Model.Tasks.ElementAtOrDefault(i);
+                @if (assigned is { Started: not null })
+                {
+                    foreach (var groomer in assigned.AssignedGroomers)
+                    {
+                        <input type="hidden" name="assignments[@i].GroomerIds" value="@groomer.Id" />
+                    }
+                }
+                else
+                {
+                    <fieldset class="border rounded p-3 mb-3">
+                        <legend class="float-none w-auto fs-6 px-2">@services[i]</legend>
+                        @foreach (var groomer in groomers)
+                        {
+                            <label class="form-check mb-2">
+                                <input type="checkbox" class="form-check-input" name="assignments[@i].GroomerIds"
+                                       value="@groomer.Id" checked="@(assigned?.AssignedGroomers.Any(x => x.Id == groomer.Id) == true)" />
+                                <span class="form-check-label">@groomer.Name</span>
+                            </label>
+                        }
+                    </fieldset>
+                }
+            }
+            <button class="btn btn-primary">Save and preview checklist</button>
+        </form>
+    }
+}

@@ -153,6 +153,92 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.CashDrawerEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RecordedByEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ReferenceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ShiftId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Kind", "ReferenceId")
+                        .IsUnique();
+
+                    b.HasIndex("ShiftId", "RecordedAtUtc");
+
+                    b.ToTable("CashDrawerEntries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CashDrawerEntries_Amount", "[Amount] <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.CashDrawerShift", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ClosedByEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("CountedCash")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ExpectedAtClose")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("OpenedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OpenedByEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("OpeningCash")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "ClosedAtUtc" }, "IX_CashDrawerShifts_ClosedHistory");
+
+                    b.HasIndex(new[] { "ClosedAtUtc" }, "IX_CashDrawerShifts_OnlyOpenShift")
+                        .IsUnique()
+                        .HasFilter("[ClosedAtUtc] IS NULL");
+
+                    b.ToTable("CashDrawerShifts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CashDrawerShifts_Amounts", "[OpeningCash] >= 0 AND (([ClosedAtUtc] IS NULL AND [CountedCash] IS NULL AND [ExpectedAtClose] IS NULL AND [ClosedByEmployeeId] IS NULL) OR ([ClosedAtUtc] IS NOT NULL AND [CountedCash] IS NOT NULL AND [CountedCash] >= 0 AND [ExpectedAtClose] IS NOT NULL AND [ExpectedAtClose] >= 0 AND [ClosedByEmployeeId] IS NOT NULL))");
+                        });
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.CustomerRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -230,6 +316,392 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.HasIndex("TargetUserId");
 
                     b.ToTable("EmployeeAuditLogs");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingAppointment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CancelledBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("EndsAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EstimateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("EstimateVersion")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("GroomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ScheduledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ScheduledBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("StartsAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EstimateId")
+                        .IsUnique()
+                        .HasFilter("[CancelledAtUtc] IS NULL");
+
+                    b.HasIndex("StartsAtUtc");
+
+                    b.HasIndex("EstimateId", "EstimateVersion");
+
+                    b.HasIndex("GroomerId", "StartsAtUtc");
+
+                    b.HasIndex("PetId", "StartsAtUtc");
+
+                    b.ToTable("GroomingAppointments", (string)null);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingBill", b =>
+                {
+                    b.Property<Guid>("VisitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EstimateSnapshot")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("EstimateVersion")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("HomeDepositAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("HomeDepositBookingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("HomeDepositReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("IssuedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("IssuedByEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("VisitId");
+
+                    b.HasIndex("HomeDepositBookingId")
+                        .IsUnique()
+                        .HasFilter("[HomeDepositBookingId] IS NOT NULL");
+
+                    b.HasIndex("IssuedAtUtc");
+
+                    b.ToTable("GroomingBills", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GroomingBills_Total", "[Total] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingCashPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RecordedByEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Tendered")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("VisitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VisitId");
+
+                    b.ToTable("GroomingCashPayments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GroomingCashPayments_Amounts", "[Amount] > 0 AND [Tendered] >= [Amount]");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingCheckIn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Assessment")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CancelledByEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("CancelledEstimateVersion")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TaskChecklist")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("VisitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("WaiverBytes")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("WaiverContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("WaiverSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("VisitId")
+                        .IsUnique()
+                        .HasFilter("[CancelledAtUtc] IS NULL");
+
+                    b.ToTable("GroomingCheckIns", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GroomingCheckIns_WaiverSize", "DATALENGTH([WaiverBytes]) BETWEEN 1 AND 5242880");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingPackage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("GroomingPackages", (string)null);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingPackageService", b =>
+                {
+                    b.Property<Guid>("PackageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("PackageId", "ServiceId");
+
+                    b.HasIndex("ServiceId");
+
+                    b.ToTable("GroomingPackageServices", (string)null);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingPriceRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Breed")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Condition")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("PackageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ServiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Size")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Species")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PackageId");
+
+                    b.HasIndex("ServiceId");
+
+                    b.ToTable("GroomingPriceRules", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GroomingPriceRules_Amount", "[Amount] >= 0");
+
+                            t.HasCheckConstraint("CK_GroomingPriceRules_Target", "([ServiceId] IS NULL AND [PackageId] IS NOT NULL) OR ([ServiceId] IS NOT NULL AND [PackageId] IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingQuote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("LatestRevision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PetId");
+
+                    b.ToTable("GroomingQuotes", (string)null);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingQuoteRevision", b =>
+                {
+                    b.Property<Guid>("QuoteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Snapshot")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("QuoteId", "Number");
+
+                    b.ToTable("GroomingQuoteRevisions", (string)null);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingRecipe", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ServiceId", "ProductId")
+                        .IsUnique();
+
+                    b.ToTable("GroomingRecipes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GroomingRecipes_Quantity", "[Quantity] > 0");
+                        });
                 });
 
             modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingService", b =>
@@ -314,6 +786,54 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         });
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingVisit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CollectedBy")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("EstimateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EstimateSnapshot")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("EstimateVersion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PickedUpAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("PickupRecordedByEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RevisionToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("StartedByEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EstimateId")
+                        .IsUnique();
+
+                    b.HasIndex("StartedByEmployeeId");
+
+                    b.HasIndex("EstimateId", "EstimateVersion");
+
+                    b.ToTable("GroomingVisits", (string)null);
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryBatch", b =>
                 {
                     b.Property<Guid>("Id")
@@ -365,6 +885,9 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("GroomingVisitId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("MovementType")
                         .IsRequired()
@@ -424,6 +947,10 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.HasIndex("UsageEstimateId")
                         .IsUnique()
                         .HasFilter("[UsageEstimateId] IS NOT NULL");
+
+                    b.HasIndex("GroomingVisitId", "ProductId")
+                        .IsUnique()
+                        .HasFilter("[GroomingVisitId] IS NOT NULL");
 
                     b.HasIndex("ProductId", "CreatedAtUtc");
 
@@ -633,6 +1160,163 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.ToTable("InventorySuppliers", (string)null);
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.OffsiteBooking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AcceptedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("ConfirmedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ConfirmedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CustodyAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CustodyRecordedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeliveredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeliveryRecordedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DepositReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("DepositRequired")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("EstimateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("EstimateVersion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("HoldExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("HomeCancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("HomeCancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("HomeCancelledBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("HomeEndsAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("HomeGroomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RefundReviewNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("RefundReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RefundReviewedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReleasedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReviewReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TransportCancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("TransportCancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("TransportCancelledBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TransportEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("TransportEndUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("TransportScheduledBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("TransportStartUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("VerifiedDeposit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EstimateId", "EstimateVersion");
+
+                    b.HasIndex("EstimateId", "Kind")
+                        .IsUnique()
+                        .HasFilter("[Status] <> 3 AND [Status] <> 7");
+
+                    b.HasIndex("HomeGroomerId", "RequestedAtUtc");
+
+                    b.HasIndex("Status", "RequestedAtUtc");
+
+                    b.HasIndex("TransportEmployeeId", "TransportStartUtc");
+
+                    b.ToTable("OffsiteBookings", (string)null);
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.PetRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -820,6 +1504,147 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .IsUnique();
 
                     b.ToTable("ProfileChanges", (string)null);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.RetailSale", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("OnlinePaymentReference")
+                        .HasMaxLength(80)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RecordedByEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("ReturnsQuarantined")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Tendered")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("VatAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("VatRate")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("decimal(5,4)");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("VoidedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("VoidedByEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OnlinePaymentReference")
+                        .IsUnique()
+                        .HasFilter("[OnlinePaymentReference] IS NOT NULL");
+
+                    b.HasIndex("RecordedAtUtc", "Id");
+
+                    b.ToTable("RetailSales", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RetailSales_Amounts", "[Total] >= 0 AND [Tendered] >= [Total]");
+
+                            t.HasCheckConstraint("CK_RetailSales_Payment", "([PaymentMethod] = 0 AND [OnlinePaymentReference] IS NULL) OR ([PaymentMethod] = 1 AND [Total] > 0 AND [Tendered] = [Total] AND [OnlinePaymentReference] IS NOT NULL AND LEN([OnlinePaymentReference]) > 0)");
+
+                            t.HasCheckConstraint("CK_RetailSales_Vat", "([VatRate] IS NULL AND [VatAmount] IS NULL) OR ([VatRate] IS NOT NULL AND [VatAmount] IS NOT NULL AND (([VatRate] = 0 AND [VatAmount] = 0) OR ([VatRate] > 0 AND [VatRate] <= 1 AND [VatAmount] = ROUND([Total] * [VatRate] / (1 + [VatRate]), 2))))");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.RetailSaleLine", b =>
+                {
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("InventoryMovementId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Sku")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("SaleId", "ProductId");
+
+                    b.HasIndex("InventoryMovementId")
+                        .IsUnique();
+
+                    b.ToTable("RetailSaleLines", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RetailSaleLines_Amounts", "[Quantity] > 0 AND [UnitPrice] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.SmsNotification", b =>
+                {
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastAttemptUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NextAttemptUtc")
+                        .IsConcurrencyToken()
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ProviderBatchId")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("Status")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("Kind", "SourceId");
+
+                    b.HasIndex("Status", "NextAttemptUtc");
+
+                    b.ToTable("SmsNotification");
                 });
 
             modelBuilder.Entity("PawsNClaws.Domain.Entities.StockOutRequest", b =>
@@ -1018,6 +1843,10 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.Property<Guid>("SupplierId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("SupplierInvoiceVat")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal?>("UnitCost")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -1035,6 +1864,8 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.ToTable("StockReceipts", null, t =>
                         {
                             t.HasCheckConstraint("CK_StockReceipts_Quantities", "[Delivered] > 0 AND [Accepted] >= 0 AND [Rejected] >= 0 AND [Delivered] = [Accepted] + [Rejected]");
+
+                            t.HasCheckConstraint("CK_StockReceipts_SupplierInvoiceVat", "[SupplierInvoiceVat] IS NULL OR ([SupplierInvoiceVat] >= 0 AND [Accepted] > 0 AND [Reference] IS NOT NULL AND LEN([Reference]) > 0)");
                         });
                 });
 
@@ -1074,6 +1905,67 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .IsUnique();
 
                     b.ToTable("StockReceiptEvidence", (string)null);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.WalkInEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ArrivedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CalledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CalledBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ClosedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsOpen")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("PetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PriorityReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("VisitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PetId")
+                        .IsUnique()
+                        .HasFilter("[IsOpen] = 1");
+
+                    b.HasIndex("VisitId");
+
+                    b.HasIndex("IsOpen", "Status", "ArrivedAtUtc", "Id");
+
+                    b.ToTable("WalkInQueue", (string)null);
                 });
 
             modelBuilder.Entity("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", b =>
@@ -1208,6 +2100,137 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.CashDrawerEntry", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.CashDrawerShift", null)
+                        .WithMany()
+                        .HasForeignKey("ShiftId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingAppointment", b =>
+                {
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("GroomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.PetRecord", null)
+                        .WithMany()
+                        .HasForeignKey("PetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingQuoteRevision", null)
+                        .WithMany()
+                        .HasForeignKey("EstimateId", "EstimateVersion")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingBill", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.OffsiteBooking", null)
+                        .WithOne()
+                        .HasForeignKey("PawsNClaws.Domain.Entities.GroomingBill", "HomeDepositBookingId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingVisit", null)
+                        .WithOne()
+                        .HasForeignKey("PawsNClaws.Domain.Entities.GroomingBill", "VisitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingCashPayment", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingBill", null)
+                        .WithMany("Payments")
+                        .HasForeignKey("VisitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingCheckIn", b =>
+                {
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingVisit", null)
+                        .WithMany()
+                        .HasForeignKey("VisitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingPackageService", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingPackage", null)
+                        .WithMany("Services")
+                        .HasForeignKey("PackageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingService", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingPriceRule", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingPackage", null)
+                        .WithMany()
+                        .HasForeignKey("PackageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingService", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingQuote", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.PetRecord", null)
+                        .WithMany()
+                        .HasForeignKey("PetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingQuoteRevision", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingQuote", null)
+                        .WithMany()
+                        .HasForeignKey("QuoteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingRecipe", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingService", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingUsageEstimate", b =>
                 {
                     b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
@@ -1223,6 +2246,21 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingVisit", b =>
+                {
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("StartedByEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingQuoteRevision", null)
+                        .WithMany()
+                        .HasForeignKey("EstimateId", "EstimateVersion")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryBatch", b =>
                 {
                     b.HasOne("PawsNClaws.Domain.Entities.Product", null)
@@ -1234,6 +2272,11 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
 
             modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovement", b =>
                 {
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingVisit", null)
+                        .WithMany()
+                        .HasForeignKey("GroomingVisitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("PerformedByUserId")
@@ -1325,6 +2368,25 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.OffsiteBooking", b =>
+                {
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("HomeGroomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PawsNClaws.Infastructure.Identity.Local.LocalApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("TransportEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingQuoteRevision", null)
+                        .WithMany()
+                        .HasForeignKey("EstimateId", "EstimateVersion")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.PetRecord", b =>
                 {
                     b.HasOne("PawsNClaws.Domain.Entities.CustomerRecord", null)
@@ -1346,6 +2408,21 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .WithMany()
                         .HasForeignKey("PetId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.RetailSaleLine", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.InventoryMovement", null)
+                        .WithOne()
+                        .HasForeignKey("PawsNClaws.Domain.Entities.RetailSaleLine", "InventoryMovementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.RetailSale", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PawsNClaws.Domain.Entities.StockOutRequest", b =>
@@ -1429,11 +2506,40 @@ namespace PawsNClaws.Infastructure.Persistence.Local.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.WalkInEntry", b =>
+                {
+                    b.HasOne("PawsNClaws.Domain.Entities.PetRecord", null)
+                        .WithMany()
+                        .HasForeignKey("PetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PawsNClaws.Domain.Entities.GroomingVisit", null)
+                        .WithMany()
+                        .HasForeignKey("VisitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingBill", b =>
+                {
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.GroomingPackage", b =>
+                {
+                    b.Navigation("Services");
+                });
+
             modelBuilder.Entity("PawsNClaws.Domain.Entities.InventoryMovement", b =>
                 {
                     b.Navigation("Allocations");
 
                     b.Navigation("Evidence");
+                });
+
+            modelBuilder.Entity("PawsNClaws.Domain.Entities.RetailSale", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("PawsNClaws.Domain.Entities.StockOutRequest", b =>

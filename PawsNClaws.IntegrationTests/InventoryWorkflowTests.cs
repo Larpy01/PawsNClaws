@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using PawsNClaws.Application.Features.Inventory;
+using PawsNClaws.Application.Features.Products;
 using PawsNClaws.Domain.Entities;
 using PawsNClaws.Domain.Enums;
 using PawsNClaws.Infastructure.Features.Inventory;
@@ -18,7 +19,8 @@ public sealed class InventoryWorkflowTests : IAsyncLifetime
     private readonly LocalDbContext _db = new(new DbContextOptionsBuilder<LocalDbContext>()
         .UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options);
     private readonly DirectoryInfo _directory = Directory.CreateTempSubdirectory("paws-inventory-");
-    private InventoryService Service => new(_db, new InventoryEvidenceStore(_directory.FullName), NullLogger<InventoryService>.Instance);
+    private InventoryService Service => new(_db, new InventoryEvidenceStore(_directory.FullName),
+        NullLogger<InventoryService>.Instance, new RetailTax(false));
 
     public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
@@ -40,10 +42,17 @@ public sealed class InventoryWorkflowTests : IAsyncLifetime
             Permissions.InventoryReview, Permissions.InventoryAdjust);
         var service = Service;
         var receipt = new ReceivingCommand(Guid.NewGuid(), product.Id, "Supplier", "Invoice", "LOT-1", null,
-            10, 8, 2, null, "Rejected at receiving");
+            10, 8, 2, null, "Rejected at receiving", SupplierInvoiceVat: 12.34m);
+        await Assert.ThrowsAsync<InventoryRuleException>(() => service.ReceiveAsync(staff, receipt with { Reference = null }, [], ct));
+        await Assert.ThrowsAsync<InventoryRuleException>(() => service.ReceiveAsync(staff, receipt with { SupplierInvoiceVat = 12.345m }, [], ct));
         using var receiptPhoto = Photo();
         await service.ReceiveAsync(staff, receipt, [new("receipt.png", receiptPhoto)], ct);
         await service.ReceiveAsync(staff, receipt, [], ct);
+        await Assert.ThrowsAsync<InventoryRuleException>(() =>
+            service.ReceiveAsync(staff, receipt with { SupplierInvoiceVat = 12.35m }, [], ct));
+        var overview = await service.GetOverviewAsync(staff, 1, 1, 1, ct);
+        Assert.Equal(12.34m, Assert.Single(overview.Receipts).SupplierInvoiceVat);
+        Assert.Equal(product.Price, Assert.Single(overview.Stock).RetailPrice);
         var batch = await _db.Set<InventoryBatch>().SingleAsync(ct);
         Assert.Equal(8, batch.OnHand);
 

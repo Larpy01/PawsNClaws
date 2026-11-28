@@ -16,6 +16,7 @@ public sealed class ReceivingForm
     public decimal Accepted { get; set; }
     public decimal Rejected { get; set; }
     public decimal? UnitCost { get; set; }
+    public decimal? SupplierInvoiceVat { get; set; }
     [StringLength(500)] public string? RejectionReason { get; set; }
     [StringLength(16)] public string? InputUnit { get; set; }
     public List<IFormFile> Photos { get; set; } = [];
