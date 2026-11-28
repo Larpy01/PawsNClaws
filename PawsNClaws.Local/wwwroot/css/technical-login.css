@@ -7,7 +7,8 @@ body {
     padding: clamp(1rem, 4vw, 3rem);
     background: #f2f4ed;
     color: #22392f;
-    font: 1rem/1.5 "Segoe UI", sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
 }
 main {
     width: min(100%, 29rem);
@@ -18,7 +19,7 @@ main {
     border-radius: 1rem;
     box-shadow: 0 12px 40px #213c2910;
 }
-h1 { font: 600 clamp(1.9rem, 6vw, 2.5rem)/1.2 Georgia, serif; margin: .4rem 0 1.5rem; }
+h1 { font-weight: 600; font-size: clamp(1.9rem, 6vw, 2.5rem); line-height: 1.2; margin: .4rem 0 1.5rem; }
 label { font-weight: 600; }
 label { display: block; }
 input:not([type=hidden]) {

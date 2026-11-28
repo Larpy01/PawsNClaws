@@ -1,0 +1,177 @@
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using PawsNClaws.Infastructure.Identity.Local
+@inject IAuthorizationService Authorization
+@inject UserManager<LocalApplicationUser> Users
+@{
+    var technical = User.IsInRole(LocalRoles.SuperAdmin);
+    var management = User.IsInRole(LocalRoles.Admin) || User.IsInRole(LocalRoles.Manager);
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var navigationAction = controller == "RetailCheckout" && action is "Details" or "Void" ? "Sales" :
+        controller == "OperationsReports" && action == "Export" ? "Index" : action;
+    var user = await Users.GetUserAsync(User);
+    var email = user?.Email ?? User.FindFirstValue(ClaimTypes.Email) ?? "";
+    var name = user is null ? "" : $"{user.FirstName} {user.LastName}".Trim();
+    if (string.IsNullOrWhiteSpace(name)) name = technical ? "SuperAdmin" : "Employee";
+    var account = new WorkspaceAccount(technical, name, email, name[..1].ToUpperInvariant());
+    var groups = new List<(WorkspaceItem Item, List<(WorkspaceLink Link, string Href)> Links)>();
+    var quickLinks = new List<(WorkspaceLink Link, string Href)>();
+    var permissionResults = new Dictionary<string, bool>(StringComparer.Ordinal);
+
+    async Task<bool> Allowed(string? permission)
+    {
+        if (permission is null) return true;
+        if (!permissionResults.TryGetValue(permission, out var allowed))
+            permissionResults[permission] = allowed = (await Authorization.AuthorizeAsync(User, permission)).Succeeded;
+        return allowed;
+    }
+
+    async Task<List<(WorkspaceLink Link, string Href)>> Resolve(IEnumerable<WorkspaceLink> candidates)
+    {
+        var result = new List<(WorkspaceLink, string)>();
+        foreach (var link in candidates)
+        {
+            if ((!link.ManagementOnly || management) && (link.Role is null || User.IsInRole(link.Role)) &&
+                await Allowed(link.Permission) && await Allowed(link.AdditionalPermission) &&
+                (link.Path is null ? Url.Action(link.Action, link.Controller) : Url.Content(link.Path)) is { } href)
+                result.Add((link, href));
+        }
+        return result;
+    }
+
+    foreach (var item in technical ? WorkspaceNavigation.Technical : WorkspaceNavigation.Employee)
+    {
+        var destinations = await Resolve(item.Links);
+        if (destinations.Count > 0) groups.Add((item, destinations));
+    }
+    if (!technical) quickLinks = await Resolve(WorkspaceNavigation.Create);
+    bool Exact(WorkspaceLink link) => controller == link.Controller && action == link.Action;
+    var allLinks = groups.SelectMany(group => group.Links).ToArray();
+    var current = allLinks.FirstOrDefault(item => item.Link.Controller == controller && item.Link.Action == navigationAction).Link
+        ?? allLinks.FirstOrDefault(item => item.Link.Controller == controller && item.Link.Action == "Index").Link;
+}
+<aside class="shell-sidebar" id="workspace-sidebar" aria-label="Workspace navigation">
+    <div class="shell-sidebar-heading">
+        <span class="shell-brand-icon"><partial name="_WorkspaceIcon" model='"command"' /></span>
+        <span class="shell-expanded shell-brand-name">Paws N’ Claws</span>
+        <button class="shell-button shell-expanded shell-collapse" type="button" data-sidebar-toggle
+                aria-controls="workspace-sidebar" aria-label="Collapse sidebar">
+            <partial name="_WorkspaceIcon" model='"panel"' />
+        </button>
+    </div>
+    @if (quickLinks.Count > 0)
+    {
+        <div class="shell-create-wrap">
+            <button class="shell-nav-row shell-create" type="button" data-open-dialog="shell-create-dialog"
+                    aria-label="Create" data-tip="Create"><partial name="_WorkspaceIcon" model='"plus"' />
+                <span class="shell-expanded">Create</span>
+            </button>
+        </div>
+    }
+    <nav class="shell-navigation" aria-label="Main navigation">
+        @foreach (var group in groups.GroupBy(entry => entry.Item.Group))
+        {
+            <div class="shell-nav-group">
+                <div class="shell-expanded shell-group-name">@group.Key</div>
+                <ul>
+                    @foreach (var entry in group)
+                    {
+                        var active = entry.Links.Any(item => item.Link == current);
+                        <li>
+                            @if (entry.Links.Count == 1)
+                            {
+                                var item = entry.Links[0];
+                                <a class="shell-nav-row" aria-label="@item.Link.Label" data-tip="@item.Link.Label"
+                                   aria-current="@(active ? Exact(item.Link) ? "page" : "location" : null)" href="@item.Href">
+                                    <partial name="_WorkspaceIcon" model="entry.Item.Icon" /><span class="shell-expanded">@item.Link.Label</span>
+                                </a>
+                            }
+                            else
+                            {
+                                <details class="shell-submenu @(active ? "has-current" : null)" name="workspace-section" open="@(active ? "open" : null)">
+                                    <summary class="shell-nav-row" aria-label="@entry.Item.Label" data-tip="@entry.Item.Label">
+                                        <partial name="_WorkspaceIcon" model="entry.Item.Icon" /><span class="shell-expanded">@entry.Item.Label</span>
+                                        <span class="shell-expanded shell-sub-chevron"><partial name="_WorkspaceIcon" model='"chevron"' /></span>
+                                    </summary>
+                                    <ul class="shell-submenu-links" aria-label="@entry.Item.Label">
+                                        @foreach (var item in entry.Links)
+                                        {
+                                            <li><a aria-current="@(item.Link == current ? Exact(item.Link) ? "page" : "location" : null)" href="@item.Href">@item.Link.Label</a></li>
+                                        }
+                                    </ul>
+                                </details>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    </nav>
+    <div class="shell-sidebar-footer">
+        @if (!technical)
+        {
+            <a class="shell-nav-row" asp-controller="Home" asp-action="Privacy" target="_blank" rel="noopener"
+               aria-label="Privacy (opens in a new tab)" data-tip="Privacy">
+                <partial name="_WorkspaceIcon" model='"external"' /><span class="shell-expanded">Privacy</span>
+            </a>
+        }
+        <partial name="_WorkspaceAccountMenu" model='(account, "sidebar")' />
+    </div>
+</aside>
+<button class="shell-backdrop" type="button" data-sidebar-close tabindex="-1" aria-label="Close navigation" hidden></button>
+<header class="shell-header">
+    <div class="shell-header-side">
+        <button class="shell-button" type="button" data-sidebar-toggle aria-controls="workspace-sidebar" aria-label="Toggle sidebar" title="Toggle sidebar (Ctrl or ⌘ B)">
+            <partial name="_WorkspaceIcon" model='"panel"' />
+        </button>
+        <span class="shell-divider" aria-hidden="true"></span>
+        <button class="shell-search" type="button" data-open-dialog="shell-command" aria-label="Search navigation" aria-keyshortcuts="Control+J Meta+J">
+            <partial name="_WorkspaceIcon" model='"search"' /><span>Search</span><kbd>⌘ J</kbd>
+        </button>
+    </div>
+    <div class="shell-header-side">
+        <button class="shell-button shell-secondary" type="button" data-open-dialog="shell-settings" aria-label="Theme and sidebar settings" title="Settings">
+            <partial name="_WorkspaceIcon" model='"settings"' />
+        </button>
+        <button class="shell-button shell-secondary" type="button" data-theme-toggle aria-label="Toggle light and dark mode" title="Toggle light and dark mode">
+            <span data-show-light><partial name="_WorkspaceIcon" model='"sun"' /></span>
+            <span data-show-dark><partial name="_WorkspaceIcon" model='"moon"' /></span>
+        </button>
+        <partial name="_WorkspaceAccountMenu" model='(account, "header")' />
+    </div>
+</header>
+<dialog class="shell-dialog shell-command" id="shell-command" aria-labelledby="shell-command-title">
+    <div class="shell-dialog-heading"><h2 id="shell-command-title">Search navigation</h2><button type="button" class="shell-button" data-close-dialog aria-label="Close search"><partial name="_WorkspaceIcon" model='"close"' /></button></div>
+    <input class="shell-input" type="search" placeholder="Search pages…" aria-label="Search pages" autocomplete="off" data-command-input autofocus />
+    <ul class="shell-dialog-list" data-command-results>
+        @foreach (var item in allLinks)
+        {
+            <li><a href="@item.Href">@item.Link.Label</a></li>
+        }
+    </ul>
+    <p data-command-empty hidden>No matching pages.</p>
+</dialog>
+<dialog class="shell-dialog shell-settings" id="shell-settings" aria-labelledby="shell-settings-title">
+    <div class="shell-dialog-heading"><h2 id="shell-settings-title">Appearance</h2><button type="button" class="shell-button" data-close-dialog aria-label="Close settings"><partial name="_WorkspaceIcon" model='"close"' /></button></div>
+    <fieldset><legend>Sidebar and header theme</legend><label><input type="radio" name="shell-theme" value="light" /> Light</label>
+        <label><input type="radio" name="shell-theme" value="dark" /> Dark</label></fieldset>
+    <fieldset><legend>Sidebar</legend><label><input type="radio" name="shell-sidebar-style" value="false" /> Icon rail</label>
+        <label><input type="radio" name="shell-sidebar-style" value="true" /> Expanded</label></fieldset>
+</dialog>
+<dialog class="shell-dialog" id="shell-profile" aria-labelledby="shell-profile-title">
+    <div class="shell-dialog-heading"><h2 id="shell-profile-title">Profile</h2><button type="button" class="shell-button" data-close-dialog aria-label="Close profile"><partial name="_WorkspaceIcon" model='"close"' /></button></div>
+    <p><strong>@account.Name</strong></p>
+    @if (account.Email.Length > 0) { <p>@account.Email</p> }
+    <p>@string.Join(", ", User.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Distinct())</p>
+</dialog>
+@if (quickLinks.Count > 0)
+{
+    <dialog class="shell-dialog" id="shell-create-dialog" aria-labelledby="shell-create-title">
+        <div class="shell-dialog-heading"><h2 id="shell-create-title">Create</h2><button type="button" class="shell-button" data-close-dialog aria-label="Close create"><partial name="_WorkspaceIcon" model='"close"' /></button></div>
+        <ul class="shell-dialog-list">
+            @foreach (var item in quickLinks) { <li><a href="@item.Href">@item.Link.Label</a></li> }
+        </ul>
+    </dialog>
+}

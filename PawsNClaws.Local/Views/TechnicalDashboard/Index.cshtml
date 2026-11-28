@@ -1,20 +1,18 @@
-@{
-    Layout = null;
-}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>System Administration - Paws N’ Claws</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-</head>
-<body>
-    <main class="container py-4">
+@model PawsNClaws.Application.Features.Reports.TechnicalDashboard
+@{ ViewData["Title"] = "System Administration"; }
+<section class="workspace-page-heading">
+    <div>
         <h1>System Administration</h1>
-        <form asp-controller="TechnicalAccount" asp-action="Logout" method="post">
-            <button type="submit" class="btn btn-outline-secondary">Sign out</button>
-        </form>
-    </main>
-</body>
-</html>
+        <p>Account status and recorded employee audit activity.</p>
+    </div>
+</section>
+<div class="workspace-kpis" role="group" aria-label="System administration totals">
+    <article class="workspace-panel"><h2>Total accounts</h2><strong>@((Model.ActiveAccounts + Model.InactiveAccounts).ToString("N0"))</strong></article>
+    <article class="workspace-panel"><h2>Active accounts</h2><strong>@Model.ActiveAccounts.ToString("N0")</strong></article>
+    <article class="workspace-panel"><h2>Inactive accounts</h2><strong>@Model.InactiveAccounts.ToString("N0")</strong></article>
+    <article class="workspace-panel"><h2>Audit events in 7 days</h2><strong>@Model.Days.Sum(day => day.PrimaryCount).ToString("N0")</strong></article>
+</div>
+<div class="workspace-insights">
+    <partial name="_DashboardTrend" model='new DashboardTrend("Employee audit activity", "Recorded events", null, Model.Days)' />
+    <partial name="_DashboardMix" model='new DashboardMix("Account status", "Active", "Inactive", Model.ActiveAccounts, Model.InactiveAccounts, "{0:N0}")' />
+</div>

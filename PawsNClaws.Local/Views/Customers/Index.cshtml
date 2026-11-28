@@ -4,7 +4,10 @@
     var pageNumber = (int)ViewData["Page"]!;
     var query = ViewData["Query"] as string;
 }
-<h1>Customers &amp; Pets</h1>
+<div class="workspace-page-heading">
+    <h1>Customers &amp; Pets</h1>
+    <a href="@Url.Content("~/Customers/New")" class="btn btn-primary">Add customer</a>
+</div>
 <form method="get" class="my-3">
     <label for="query" class="form-label">Search by customer, contact number, email, or pet name</label>
     <div class="input-group">
@@ -12,22 +15,23 @@
         <button class="btn btn-outline-primary">Search</button>
     </div>
 </form>
-<a href="@Url.Content("~/Customers/New")" class="btn btn-primary">Add customer</a>
 @if (Model.Count == 0)
 {
     <p class="my-3">No customers found.</p>
 }
 else
 {
-    <table class="table mt-3">
-        <thead><tr><th>Customer</th><th>Contact number</th><th>Email</th></tr></thead>
-        <tbody>
-        @foreach (var owner in Model.Take(25))
-        {
-            <tr><td><a asp-action="Details" asp-route-id="@owner.Id">@owner.FirstName @owner.LastName</a></td><td>@owner.Phone</td><td>@owner.Email</td></tr>
-        }
-        </tbody>
-    </table>
+    <div class="table-responsive mt-3" tabindex="0" role="region" aria-label="Customer search results">
+        <table class="table">
+            <thead><tr><th scope="col">Customer</th><th scope="col">Contact number</th><th scope="col">Email</th></tr></thead>
+            <tbody>
+            @foreach (var owner in Model.Take(25))
+            {
+                <tr><td><a asp-action="Details" asp-route-id="@owner.Id">@owner.FirstName @owner.LastName</a></td><td>@owner.Phone</td><td>@owner.Email</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
 }
 @if (pageNumber > 1)
 {

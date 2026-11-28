@@ -1,0 +1,20 @@
+@model DashboardMix
+@using System.Globalization
+@{
+    var hasData = Model.Primary + Model.Secondary > 0;
+    string Display(decimal value) => string.Format(CultureInfo.CurrentCulture, Model.UnitFormat, value);
+}
+<section class="workspace-panel workspace-mix">
+    <h2>@Model.Title</h2>
+    @if (Model.Period is not null)
+    {
+        <p class="workspace-chart-period">@Model.Period</p>
+    }
+    <div class="workspace-ring @(hasData ? "" : "is-empty")" style="--primary-share: @Model.PrimaryShare" aria-hidden="true">
+        <strong>@Display(Model.Primary + Model.Secondary)</strong>
+    </div>
+    <dl class="workspace-mix-values">
+        <div><dt><span class="workspace-swatch" aria-hidden="true"></span>@Model.PrimaryLabel</dt><dd>@Display(Model.Primary)</dd></div>
+        <div><dt><span class="workspace-swatch is-secondary" aria-hidden="true"></span>@Model.SecondaryLabel</dt><dd>@Display(Model.Secondary)</dd></div>
+    </dl>
+</section>

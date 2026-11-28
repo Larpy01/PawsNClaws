@@ -1,0 +1,31 @@
+@model string
+@{
+    var path = Model switch
+    {
+        "command" => "M9 7V5a2 2 0 1 0-2 2h10a2 2 0 1 0-2-2v14a2 2 0 1 0 2-2H7a2 2 0 1 0 2 2V7",
+        "plus" => "M12 5v14M5 12h14",
+        "panel" => "M4 5h16v14H4zM9 5v14",
+        "search" => "M16 16l4 4M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z",
+        "settings" => "m10 3-1 3-3 1-3-1-1 3 2 2v2l-2 2 1 3 3-1 3 1 1 3h4l1-3 3-1 3 1 1-3-2-2v-2l2-2-1-3-3 1-3-1-1-3zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
+        "sun" => "M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",
+        "moon" => "M20.5 14A8.5 8.5 0 0 1 10 3.5 8.5 8.5 0 1 0 20.5 14Z",
+        "chevron" => "m9 6 6 6-6 6",
+        "close" => "m6 6 12 12M18 6 6 18",
+        "external" => "M13 5h6v6m0-6-8 8m6 0v6H5V7h6",
+        "dashboard" => "M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z",
+        "chart" => "M4 4v16h16M8 15v2m4-6v6m4-10v10m4-13v13",
+        "wallet" => "M4 6h14v13H4zm14 4h3v5h-6v-5zm0 2.5h.01",
+        "gauge" => "M4 17a8 8 0 1 1 16 0H4zm8-2 4-5",
+        "bag" => "M5 8h14l1 12H4zm4 1V6a3 3 0 0 1 6 0v3",
+        "academy" => "m2 9 10-5 10 5-10 5zm4 2v5a10 10 0 0 0 12 0v-5m4-2v7",
+        "logistics" => "M3 4h6v13H3zm6 5h4v8h7m-4-9v9m-3 4h7M5 19h.01M11 19h.01",
+        "mail" => "M3 5h18v14H3zm0 1 9 7 9-7",
+        "calendar" => "M4 6h16v14H4zm0 4h16M8 4v4m8-4v4",
+        "kanban" => "M4 5h16v14H4zm4 3v5m4-5v8m4-8v3",
+        "users" => "M3 19v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m2-6a4 4 0 0 1 4 4v2M12 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm4-3a3 3 0 0 1 0 6",
+        "lock" => "M5 11h14v9H5zm3 0V8a4 4 0 1 1 8 0v3m-4 4v2",
+        _ => "M12 3v18M3 12h18"
+    };
+}
+<svg class="shell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor"
+     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="@path" /></svg>

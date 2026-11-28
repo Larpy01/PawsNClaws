@@ -31,6 +31,7 @@
         <p><a asp-controller="OffsiteBookings" asp-action="New" asp-route-estimateId="@quote.Id" asp-route-version="@quote.Number">Record a home-service or transport request</a></p>
         <p>@snapshot.Owner · @PhilippineDateTime.FormatUtc(quote.CreatedAtUtc)</p>
         <p>@snapshot.Species · @(snapshot.Breed ?? "Breed unknown") · @(snapshot.Size ?? "Size unknown") · @(snapshot.Condition ?? "Condition unspecified")</p>
+        <div class="table-responsive" tabindex="0" role="region" aria-label="Estimate line items">
         <table class="table">
             <thead><tr><th>Selection</th><th>Included services</th><th class="text-end">Amount</th></tr></thead>
             <tbody>
@@ -43,6 +44,7 @@
             }
             </tbody>
         </table>
+        </div>
         <p>Calculated Total: ₱@snapshot.BaseTotal.ToString("N2")</p>
         @if (snapshot.OverrideTotal.HasValue)
         {

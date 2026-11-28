@@ -183,6 +183,8 @@ builder.Services.AddScoped<IInventoryService>(services => services.GetRequiredSe
 builder.Services.AddScoped<ICashDrawer, CashDrawer>();
 builder.Services.AddScoped<PawsNClaws.Application.Features.Reports.IOperationsReports,
     PawsNClaws.Infastructure.Features.Reports.OperationsReports>();
+builder.Services.AddScoped<PawsNClaws.Application.Features.Reports.IDashboardMetrics,
+    PawsNClaws.Infastructure.Features.Reports.DashboardMetrics>();
 builder.Services.AddScoped<IRetailCheckout>(services => services.GetRequiredService<InventoryService>());
 builder.Services.AddScoped<SmsDispatcher>();
 builder.Services.AddScoped<PawsNClaws.Application.Features.Notifications.ISmsQueueStatus, SmsQueueStatus>();

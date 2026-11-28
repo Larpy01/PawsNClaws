@@ -83,6 +83,7 @@ public sealed class RetailCheckoutTests(LocalAppFactory app) : IClassFixture<Loc
         var receiptPath = sold.Headers.Location?.OriginalString;
         Assert.Equal($"{checkout}/{operationId}", receiptPath);
         var receipt = await browser.GetStringAsync(receiptPath!, token);
+        Assert.Contains("aria-current=\"location\" href=\"/RetailCheckout/Sales\">Sale history</a>", receipt);
         Assert.Contains(shampoo.Name, receipt);
         Assert.Contains(brush.Name, receipt);
         Assert.Contains("340.00", receipt);

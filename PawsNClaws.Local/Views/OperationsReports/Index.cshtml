@@ -4,7 +4,10 @@
     ViewData["Title"] = "Operations report";
     var date = Model.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 }
-<h1>Operations report</h1>
+<div class="workspace-page-heading">
+    <h1>Operations report</h1>
+    <a asp-action="Export" asp-route-date="@date" asp-route-monthly="@Model.Monthly" class="btn btn-primary">Download PDF</a>
+</div>
 <div class="report-actions mb-3">
     <form method="get" asp-action="Index" class="row g-2 align-items-end mb-2">
         <div class="col-sm-auto">
@@ -20,13 +23,13 @@
         </div>
         <div class="col-sm-auto"><button class="btn btn-primary">Show report</button></div>
     </form>
-    <a asp-action="Export" asp-route-date="@date" asp-route-monthly="@Model.Monthly" class="btn btn-outline-primary">Download PDF</a>
     <a asp-action="Sms" class="btn btn-outline-secondary">SMS delivery queue</a>
 </div>
 <p>@Model.FirstDay.ToString("MMM d, yyyy")@if (Model.LastDay != Model.FirstDay) { <span> to @Model.LastDay.ToString("MMM d, yyyy")</span> } · Philippine time · Local shop records</p>
 
 <h2 class="h5">Sales, payments, and drawer variances</h2>
 <p>Grooming bills and cash received are tracked separately. Deposits show the amount verified in this period. Retail refunds appear on the date they were recorded.</p>
+<div class="table-responsive" tabindex="0" role="region" aria-label="Sales, payments, and drawer variances">
 <table class="table">
     <thead><tr><th scope="col">Metric</th><th scope="col" class="text-end">Amount</th></tr></thead>
     <tbody>
@@ -36,8 +39,10 @@
     }
     </tbody>
 </table>
+</div>
 <h2 class="h5">Retail sales and refunds by payment method</h2>
 <p>Use the online totals to reconcile retail transfers. Grooming cash and verified deposits appear above.</p>
+<div class="table-responsive" tabindex="0" role="region" aria-label="Retail sales and refunds by payment method">
 <table class="table">
     <thead><tr><th scope="col">Metric</th><th scope="col" class="text-end">Amount</th></tr></thead>
     <tbody>
@@ -47,7 +52,9 @@
     }
     </tbody>
 </table>
+</div>
 <h2 class="h5">Shop activity</h2>
+<div class="table-responsive" tabindex="0" role="region" aria-label="Shop activity">
 <table class="table">
     <thead><tr><th scope="col">Metric</th><th scope="col" class="text-end">Value</th></tr></thead>
     <tbody>
@@ -58,3 +65,4 @@
     }
     </tbody>
 </table>
+</div>

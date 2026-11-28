@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using PawsNClaws.Application.Features.Employees.Interfaces;
 using PawsNClaws.Infastructure.Identity.Local;
@@ -24,10 +25,11 @@ public sealed class EmployeeManagementTests(LocalAppFactory app) : IClassFixture
         using var client = app.CreateBrowser();
         using var login = await LocalAppFactory.SignInAsync(client, viewer);
         var html = await client.GetStringAsync("/Employees", TestContext.Current.CancellationToken);
-
-        Assert.Contains(cashier.Email, html);
-        Assert.Contains(inactiveGroomer.Email, html);
-        Assert.DoesNotContain(viewer.Email, html);
+        var table = Regex.Match(html, @"<table\b[^>]*>[\s\S]*?</table>");
+        Assert.True(table.Success);
+        Assert.Contains(cashier.Email, table.Value);
+        Assert.Contains(inactiveGroomer.Email, table.Value);
+        Assert.DoesNotContain(viewer.Email, table.Value);
         Assert.DoesNotContain(otherAdmin.Email, html);
         Assert.DoesNotContain(superAdmin.Email, html);
     }

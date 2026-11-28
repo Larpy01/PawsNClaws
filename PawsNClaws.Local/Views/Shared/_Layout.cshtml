@@ -1,69 +1,49 @@
-﻿<!DOCTYPE html>
-@using Microsoft.AspNetCore.Authorization
-@using PawsNClaws.Infastructure.Identity.Local
-@inject IAuthorizationService AuthorizationService
+<!DOCTYPE html>
+@{
+    var workspace = User.Identity?.IsAuthenticated == true && ViewData["HideHeader"] is not true;
+    var shellTheme = Context.Request.Cookies["workspace_theme"] == "dark" ? "dark" : "light";
+}
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - PawsNClaws.Local</title>
+    <title>@ViewData["Title"] · Paws N’ Claws</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/typography.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/PawsNClaws.Local.styles.css" asp-append-version="true" />
-</head>
-<body>
-    @if (ViewData["HideHeader"] is not true)
+    <link rel="stylesheet" href="~/css/workspace.css" asp-append-version="true" />
+    @if (workspace)
     {
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Dashboard" asp-action="Index">PawsNClaws.Local</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        @if (PawsNClaws.Infastructure.Features.Inventory.InventoryAccess.Has(
-                            User, PawsNClaws.Infastructure.Identity.Local.Permissions.InventoryView))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Inventory" asp-action="Index">Inventory</a>
-                            </li>
-                        }
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Dashboard" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                        @if ((await AuthorizationService.AuthorizeAsync(User, Permissions.ProductsView)).Succeeded)
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Products" asp-action="Index">Products</a>
-                            </li>
-                        }
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
+        <link rel="stylesheet" href="~/css/shell.css" asp-append-version="true" />
     }
-    <div class="container">
-        <main role="main" class="pb-3">
+</head>
+<body class="@(workspace ? "workspace-body" : null)">
+    @if (workspace)
+    {
+        <a class="visually-hidden-focusable workspace-skip" href="#main-content">Skip to content</a>
+        <div class="shell-frame" data-shell-theme="@shellTheme"
+             data-sidebar-expanded="@((Context.Request.Cookies["sidebar_state"] == "true").ToString().ToLowerInvariant())">
+            <partial name="_WorkspaceSidebar" />
+            <main id="main-content" class="workspace-content" tabindex="-1">
+                @RenderBody()
+            </main>
+        </div>
+    }
+    else
+    {
+        <main id="main-content" class="container pb-3">
             @RenderBody()
         </main>
-    </div>
-
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - PawsNClaws.Local - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-        </div>
-    </footer>
+    }
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (workspace)
+    {
+        <script src="~/js/shell.js" asp-append-version="true" defer></script>
+    }
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

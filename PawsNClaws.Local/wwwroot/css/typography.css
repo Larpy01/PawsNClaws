@@ -1,0 +1,12 @@
+:root {
+  --paws-font-family: Arial, Helvetica, sans-serif;
+  --bs-font-sans-serif: var(--paws-font-family);
+}
+
+body {
+  font-family: var(--paws-font-family);
+}
+
+button, input, select, textarea, code {
+  font-family: inherit;
+}

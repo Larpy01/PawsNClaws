@@ -1,0 +1,70 @@
+@model DashboardTrend
+@using PawsNClaws.Application.Features.Reports
+@using System.Globalization
+@{
+    var max = Math.Max(1, Model.Days.Max(day => Math.Max(day.PrimaryCount, day.SecondaryCount)));
+    const int width = 600;
+    const int height = 200;
+    var intervals = Math.Max(1, Model.Days.Count - 1);
+    string Points(Func<DashboardDay, int> count) =>
+        string.Join(" ", Model.Days.Select((day, index) =>
+            string.Create(CultureInfo.InvariantCulture, $"{index * width / (decimal)intervals:0.##},{height - height * (decimal)count(day) / max:0.##}")));
+    var primary = Points(day => day.PrimaryCount);
+    var secondary = Points(day => day.SecondaryCount);
+}
+<section class="workspace-panel workspace-trend">
+    <h2>@Model.Title</h2>
+    <p class="workspace-chart-period">Last 7 days · Philippine time</p>
+    <ul class="workspace-legend">
+        <li><span class="workspace-swatch" aria-hidden="true"></span>@Model.PrimaryLabel</li>
+        @if (Model.SecondaryLabel is not null)
+        {
+            <li><span class="workspace-swatch is-secondary" aria-hidden="true"></span>@Model.SecondaryLabel</li>
+        }
+    </ul>
+    @if (Model.Days.All(day => day.PrimaryCount == 0 && day.SecondaryCount == 0))
+    {
+        <p class="workspace-chart-empty">No activity recorded for these dates.</p>
+    }
+    else
+    {
+        <div class="workspace-plot" aria-hidden="true">
+            <div class="workspace-chart-scale"><span>@max.ToString("N0")</span><span>0</span></div>
+            <div class="workspace-chart-graphic">
+                <svg class="workspace-area-chart" viewBox="-3 -3 @(width + 6) @(height + 6)" preserveAspectRatio="none" focusable="false">
+                    <polygon class="workspace-area-fill" points="0,@height @primary @width,@height" />
+                    @if (Model.SecondaryLabel is not null)
+                    {
+                        <polygon class="workspace-area-fill is-secondary" points="0,@height @secondary @width,@height" />
+                        <polyline class="workspace-area-line is-secondary" points="@secondary" vector-effect="non-scaling-stroke" />
+                    }
+                    <polyline class="workspace-area-line" points="@primary" vector-effect="non-scaling-stroke" />
+                </svg>
+                <div class="workspace-chart-labels">
+                    @foreach (var day in Model.Days)
+                    {
+                        <small>@day.Date.ToString("ddd")</small>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    <details class="workspace-chart-details">
+        <summary>View daily figures</summary>
+        <div class="table-responsive">
+            <table class="table table-sm mt-2 mb-0">
+                <thead><tr><th scope="col">Date</th><th scope="col">@Model.PrimaryLabel</th>
+                    @if (Model.SecondaryLabel is not null) { <th scope="col">@Model.SecondaryLabel</th> }
+                </tr></thead>
+                <tbody>
+                @foreach (var day in Model.Days)
+                {
+                    <tr><th scope="row">@day.Date.ToString("MM/dd/yyyy")</th><td>@day.PrimaryCount</td>
+                        @if (Model.SecondaryLabel is not null) { <td>@day.SecondaryCount</td> }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </details>
+</section>

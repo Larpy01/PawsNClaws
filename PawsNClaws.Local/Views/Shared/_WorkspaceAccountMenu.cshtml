@@ -1,0 +1,18 @@
+@model (WorkspaceAccount Account, string Position)
+<details class="shell-account shell-account-@Model.Position">
+    <summary class="shell-account-trigger" aria-label="Account menu" title="Account menu">
+        <span class="shell-avatar" aria-hidden="true">@Model.Account.Initial</span>
+        @if (Model.Position == "sidebar")
+        {
+            <span class="shell-expanded shell-account-text"><strong>@Model.Account.Name</strong><small>@Model.Account.Email</small></span>
+            <span class="shell-expanded shell-sub-chevron"><partial name="_WorkspaceIcon" model='"chevron"' /></span>
+        }
+    </summary>
+    <div class="shell-account-menu">
+        <button type="button" data-open-dialog="shell-profile">Profile</button>
+        <button type="button" data-open-dialog="shell-settings">Settings</button>
+        <form asp-controller="@(Model.Account.IsTechnical ? "TechnicalAccount" : "Account")" asp-action="Logout" method="post">
+            <button type="submit">Log out</button>
+        </form>
+    </div>
+</details>
